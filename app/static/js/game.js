@@ -13,7 +13,7 @@
   const TIMER_SOUND_URL = '/static/audio/timer-effect.mp3';
   const SPIN_SOUND_URL = '/static/audio/spinning-effect.mp3';
   const SPIN_DURATION_MS = 3000;
-  const SPIN_RESULT_POPUP_MS = 5000;
+  const SPIN_RESULT_POPUP_MS = 3000;
   const timerAudio = makeAudio(TIMER_SOUND_URL, true);
   const spinAudio = makeAudio(SPIN_SOUND_URL, false);
   // Whether the current question's answer text is visible to the host.
