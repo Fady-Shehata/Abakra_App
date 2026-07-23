@@ -13,7 +13,7 @@
   const TIMER_SOUND_URL = '/static/audio/timer-effect.mp3';
   const SPIN_SOUND_URL = '/static/audio/spinning-effect.mp3';
   const SPIN_DURATION_MS = 3000;
-  const SPIN_RESULT_POPUP_MS = 3000;
+  const SPIN_RESULT_POPUP_MS = 2000;
   const timerAudio = makeAudio(TIMER_SOUND_URL, true);
   const spinAudio = makeAudio(SPIN_SOUND_URL, false);
   // Whether the current question's answer text is visible to the host.
@@ -60,19 +60,32 @@
     // and show a big "Start Match" banner. The host must explicitly start
     // the match — opening the page is non-destructive.
     const notStarted = (state.status === 'scheduled' || state.status === 'ready');
+    const completed = state.status === 'completed';
     $('ready-banner').classList.toggle('hidden', !notStarted);
-    $('section-controls-card').classList.toggle('hidden', notStarted);
-    $('qcard-wrap').classList.toggle('hidden', notStarted);
-    document.getElementById('section-tabs').classList.toggle('hidden', notStarted);
+    $('finished-banner').classList.toggle('hidden', !completed);
+    if ($('finished-score')) {
+      $('finished-score').textContent = `${state.team_a.name} ${state.score_a} - ${state.score_b} ${state.team_b.name}`;
+    }
+    $('section-controls-card').classList.toggle('hidden', notStarted || completed);
+    $('qcard-wrap').classList.toggle('hidden', notStarted || completed);
+    document.getElementById('section-tabs').classList.toggle('hidden', notStarted || completed);
     // Pause / return-to-ready button visibility.
-    $('btn-pause-match').classList.toggle('hidden', notStarted || state.status === 'completed');
-    $('btn-reset-ready').classList.toggle('hidden', notStarted || state.status === 'completed');
-    $('btn-complete').classList.toggle('hidden', notStarted);
+    $('btn-pause-match').classList.toggle('hidden', notStarted || completed);
+    $('btn-reset-ready').classList.toggle('hidden', notStarted || completed);
+    $('btn-complete').classList.toggle('hidden', notStarted || completed);
 
     if (notStarted) {
       // Nothing else to render while awaiting Start.
       $('btn-pause-match').textContent = L['pause_match'];
       $('btn-complete').textContent = L['complete'];
+      return;
+    }
+
+    if (completed) {
+      stopTimer();
+      renderRemaining();
+      renderHistory();
+      if (IS_ADMIN && $('btn-reset-usage')) $('btn-reset-usage').textContent = L['reset_usage'];
       return;
     }
 

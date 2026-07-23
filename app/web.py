@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Form, Request, UploadFile, File
 from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlalchemy.orm import Session
 
-from . import config, models, security, i18n, standings as standings_mod, game as game_engine
+from . import config, models, security, i18n, standings as standings_mod, game as game_engine, scoring
 from .database import get_db
 from .deps import render
 from .security import get_current_user, require_login, require_admin
@@ -851,6 +851,63 @@ def my_matches(request: Request, db: Session = Depends(get_db),
     return render(request, db, "my_matches.html", user=user, matches=matches)
 
 
+@router.get("/matches/{mid}/score", response_class=HTMLResponse)
+def match_score_page(mid: int, request: Request, db: Session = Depends(get_db),
+                     user: models.User = Depends(require_login)):
+    m = db.get(models.Match, mid)
+    if not m:
+        return RedirectResponse("/", 302)
+    if not security.can_access_match(user, m):
+        return HTMLResponse("<h1>403</h1>", status_code=403)
+
+    events = (
+        db.query(models.ScoreEvent)
+        .filter(models.ScoreEvent.match_id == m.id)
+        .order_by(models.ScoreEvent.created_at.asc(), models.ScoreEvent.id.asc())
+        .all()
+    )
+    section_totals: dict[int, dict] = {}
+    rows = []
+    for e in events:
+        q = db.get(models.Question, e.question_id) if e.question_id else None
+        cat = db.get(models.Category, q.category_id) if q else None
+        team_side = "a" if e.team_id == m.team_a_id else "b" if e.team_id == m.team_b_id else ""
+        team_name = m.team_a.name if team_side == "a" and m.team_a else (
+            m.team_b.name if team_side == "b" and m.team_b else "—"
+        )
+        sec = e.section or 0
+        if sec not in section_totals:
+            section_totals[sec] = {
+                "section": sec,
+                "name": scoring.SECTION_NAMES.get(sec, "—"),
+                "a": 0,
+                "b": 0,
+            }
+        if team_side in ("a", "b"):
+            section_totals[sec][team_side] += e.delta
+        rows.append({
+            "event": e,
+            "team_side": team_side,
+            "team_name": team_name,
+            "question_code": q.question_code if q else "—",
+            "category": cat.name if cat else "—",
+            "section_name": scoring.SECTION_NAMES.get(sec, "—"),
+        })
+
+    winner_name = ""
+    if m.winner_team_id == m.team_a_id and m.team_a:
+        winner_name = m.team_a.name
+    elif m.winner_team_id == m.team_b_id and m.team_b:
+        winner_name = m.team_b.name
+
+    return render(
+        request, db, "match_score.html",
+        user=user, match=m, rows=rows,
+        section_totals=sorted(section_totals.values(), key=lambda x: x["section"]),
+        winner_name=winner_name,
+    )
+
+
 @router.get("/game/{mid}", response_class=HTMLResponse)
 def game_screen(mid: int, request: Request, db: Session = Depends(get_db),
                 user: models.User = Depends(require_login)):
@@ -922,7 +979,13 @@ def settings_language(lang: str = Form(...), db: Session = Depends(get_db),
 def reports_page(request: Request, db: Session = Depends(get_db),
                  user: models.User = Depends(require_admin)):
     tournaments = db.query(models.Tournament).all()
-    return render(request, db, "reports.html", user=user, tournaments=tournaments)
+    score_matches = db.query(models.Match).order_by(
+        models.Match.completed_at.is_(None),
+        models.Match.completed_at.desc(),
+        models.Match.created_at.desc(),
+    ).all()
+    return render(request, db, "reports.html", user=user, tournaments=tournaments,
+                  score_matches=score_matches)
 
 
 # --------------------------------------------------------------------------- #

@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %} · {{ t('score') }}{% endblock %}
+{% block content %}
+<h1>Score Board</h1>
+
+<div class="scoreboard card">
+  <div class="team-panel a">
+    <div class="name">{{ match.team_a.name if match.team_a else t('team_a') }}</div>
+    <div class="score">{{ match.score_a }}</div>
+  </div>
+  <div style="text-align:center">
+    <div class="badge info">{{ t('match_status_' + match.status) }}</div>
+    <p class="mt muted">{{ match.tournament.name }} · {{ match.round_name or match.stage }}</p>
+    {% if winner_name %}
+      <p class="mt"><strong>{{ t('winner') }}:</strong> {{ winner_name }}</p>
+    {% elif match.is_draw %}
+      <p class="mt"><strong>{{ t('draw') }}</strong></p>
+    {% endif %}
+  </div>
+  <div class="team-panel b">
+    <div class="name">{{ match.team_b.name if match.team_b else t('team_b') }}</div>
+    <div class="score">{{ match.score_b }}</div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Scoring Module</h3>
+  {% if section_totals %}
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t('section') }}</th>
+        <th>{{ match.team_a.name if match.team_a else t('team_a') }}</th>
+        <th>{{ match.team_b.name if match.team_b else t('team_b') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in section_totals %}
+      <tr>
+        <td>{{ s.name }}</td>
+        <td>{{ s.a }}</td>
+        <td>{{ s.b }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">—</p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h3>{{ t('match_history') }}</h3>
+  {% if rows %}
+  <table>
+    <thead>
+      <tr>
+        <th>{{ t('section') }}</th>
+        <th>{{ t('category') }}</th>
+        <th>{{ t('question') }}</th>
+        <th>{{ t('team') }}</th>
+        <th>{{ t('score') }}</th>
+        <th>{{ t('status') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td>{{ row.section_name }}</td>
+        <td>{{ row.category }}</td>
+        <td>{{ row.question_code }}</td>
+        <td>{{ row.team_name }}</td>
+        <td>{{ '+' if row.event.delta > 0 else '' }}{{ row.event.delta }}</td>
+        <td>{{ row.event.reason }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">—</p>
+  {% endif %}
+</div>
+
+<div class="controls">
+  <a class="btn ghost" href="{{ '/matches' if user.role_name == ROLE_ADMIN else '/my-matches' }}">{{ t('back') }}</a>
+  <a class="btn ghost" href="/game/{{ match.id }}">{{ t('match') }}</a>
+</div>
+{% endblock %}

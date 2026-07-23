@@ -177,6 +177,9 @@
       <td>
         <div style="display:inline-flex; align-items:center; gap:6px; vertical-align:middle">
           <a class="btn sm ghost" href="/game/{{ m.id }}">{{ t('match') }}</a>
+          {% if m.status == 'completed' %}
+          <a class="btn sm primary" href="/matches/{{ m.id }}/score">Score Board</a>
+          {% endif %}
           {% if m.status in ('scheduled', 'ready') %}
           <button type="button" class="btn sm ghost icon-btn" data-edit-open="{{ m.id }}" title="{{ t('edit_match') }}">✏️</button>
           <form method="post" action="/matches/{{ m.id }}/delete"

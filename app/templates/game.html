@@ -51,6 +51,14 @@
     </div>
   </div>
 
+  <div id="finished-banner" class="card hidden" style="text-align:center">
+    <h2>{{ t('match_status_completed') }}</h2>
+    <p class="mt" id="finished-score"></p>
+    <div class="controls" style="justify-content:center">
+      <a class="btn primary" id="btn-scoreboard" href="/matches/{{ match.id }}/score">Score Board</a>
+    </div>
+  </div>
+
   <div class="card" id="section-controls-card">
     <div id="section-controls"></div>
   </div>
