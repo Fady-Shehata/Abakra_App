@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="{{ lang }}" dir="{{ dir }}">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ t('app_title') }}{% block title %}{% endblock %}</title>
+  <link rel="stylesheet" href="{{ asset('css/app.css') }}" />
+  <link rel="icon" href="/static/img/game_logo.svg" />
+</head>
+<body>
+{% if user %}
+<div class="topbar">
+  <div class="brand">
+    <img class="logo" src="/static/img/game_logo.jpg" alt="game logo" onerror="this.onerror=null;this.src='/static/img/game_logo.svg'" />
+    <span>{{ t('app_title') }}</span>
+  </div>
+  <div class="spacer"></div>
+  <span class="user-chip"><i></i> {{ user.display_name }} · {{ user.role_name }}</span>
+  <form method="post" action="/lang" style="display:inline">
+    <input type="hidden" name="lang" value="{{ 'en' if lang.startswith('ar') else 'ar-EG' }}"/>
+    <button class="btn ghost sm" type="submit">{{ t('english') if lang.startswith('ar') else t('arabic') }}</button>
+  </form>
+  <a class="btn ghost sm" href="/logout">{{ t('logout') }}</a>
+</div>
+<div class="layout">
+  <nav class="sidebar">
+    {% if user.role_name == ROLE_ADMIN %}
+      <a href="/">{{ t('nav_dashboard') }}</a>
+      <a href="/tournaments">{{ t('nav_tournaments') }}</a>
+      <a href="/teams">{{ t('nav_teams') }}</a>
+      <a href="/categories">{{ t('nav_categories') }}</a>
+      <a href="/questions">{{ t('nav_questions') }}</a>
+      <a href="/matches">{{ t('nav_matches') }}</a>
+      <a href="/users">{{ t('nav_users') }}</a>
+      <a href="/reports">{{ t('nav_reports') }}</a>
+      <a href="/settings">{{ t('nav_settings') }}</a>
+    {% else %}
+      <a href="/my-matches">{{ t('nav_my_matches') }}</a>
+    {% endif %}
+  </nav>
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% else %}
+  {% block fullpage %}{% endblock %}
+{% endif %}
+<script src="{{ asset('js/app.js') }}"></script>
+<script src="{{ asset('js/smart-forms.js') }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

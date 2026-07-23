@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" role="img" aria-label="كنيسة رئيس الملائكة ميخائيل">
+  <defs>
+    <radialGradient id="bg" cx="0.5" cy="0.45" r="0.6">
+      <stop offset="0" stop-color="#8a1f24"/>
+      <stop offset="1" stop-color="#5a0f14"/>
+    </radialGradient>
+  </defs>
+  <circle cx="110" cy="110" r="106" fill="url(#bg)"/>
+  <circle cx="110" cy="110" r="106" fill="none" stroke="#d9a938" stroke-width="3"/>
+  <circle cx="110" cy="110" r="70" fill="none" stroke="#e8c874" stroke-width="1.5"/>
+  <!-- halo -->
+  <circle cx="110" cy="66" r="16" fill="none" stroke="#f4d67a" stroke-width="3"/>
+  <!-- wings -->
+  <path d="M96 84 C60 70 40 96 58 120 C74 104 88 104 96 110 Z" fill="#e7c6a0"/>
+  <path d="M124 84 C160 70 180 96 162 120 C146 104 132 104 124 110 Z" fill="#e7c6a0"/>
+  <!-- body -->
+  <path d="M96 82 h28 l8 70 h-44 z" fill="#f2ece0"/>
+  <path d="M104 100 h12 v40 h-12 z" fill="#8a1f24"/>
+  <!-- staff -->
+  <rect x="78" y="70" width="4" height="86" fill="#d9a938"/>
+  <!-- scales -->
+  <rect x="100" y="128" width="20" height="12" fill="#d9a938"/>
+  <text x="110" y="205" text-anchor="middle" font-family="Segoe UI, Tahoma" font-size="12" fill="#f4d67a">رئيس الملائكة ميخائيل</text>
+</svg>

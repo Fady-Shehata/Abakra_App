@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ t('tournaments') }}</h1>
+<div class="card">
+  <h3>{{ t('new_tournament') }}</h3>
+  <form method="post" action="/tournaments/create">
+    <div class="row">
+      <div><label>{{ t('tournament_name') }}</label><input name="name" required/></div>
+      <div><label>{{ t('start_date') }}</label><input type="date" name="start_date"/></div>
+      <div><label>{{ t('end_date') }}</label><input type="date" name="end_date"/></div>
+    </div>
+    <label>{{ t('description') }}</label>
+    <textarea name="description" rows="2"></textarea>
+    <button class="btn primary mt" type="submit">{{ t('create') }}</button>
+  </form>
+</div>
+<div class="card">
+  <h3>{{ t('tournaments') }} <span class="member-count-badge">{{ tournaments|length }}</span></h3>
+  <div class="filter-bar">
+    <input type="search" data-filter="#tournaments-table" placeholder="🔎 بحث بالاسم..." />
+  </div>
+  <table id="tournaments-table">
+    <thead><tr><th>{{ t('name') }}</th><th>{{ t('status') }}</th><th>{{ t('participating_teams') }}</th><th>{{ t('actions') }}</th></tr></thead>
+    <tbody>
+    {% for tr_ in tournaments %}
+    <tr>
+      <td><a href="/tournaments/{{ tr_.id }}"><strong>{{ tr_.name }}</strong></a></td>
+      <td><span class="badge info">{{ t('status_' + tr_.status) }}</span></td>
+      <td>{{ tr_.teams|length }}</td>
+      <td><a class="btn sm primary" href="/tournaments/{{ tr_.id }}">📂 {{ t('open') }}</a></td>
+    </tr>
+    {% else %}<tr><td colspan="4" class="muted">—</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

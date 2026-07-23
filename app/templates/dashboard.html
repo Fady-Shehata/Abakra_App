@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ t('dashboard') }}</h1>
+
+<div class="grid cols-4 mt">
+  <div class="stat"><div class="num">{{ stats.total_teams }}</div><div class="label">{{ t('total_teams') }}</div></div>
+  <div class="stat"><div class="num">{{ stats.active_tournaments }}</div><div class="label">{{ t('active_tournaments') }}</div></div>
+  <div class="stat"><div class="num">{{ stats.completed_matches }}</div><div class="label">{{ t('completed_matches') }}</div></div>
+  <div class="stat"><div class="num">{{ stats.scheduled_matches }}</div><div class="label">{{ t('scheduled_matches') }}</div></div>
+  <div class="stat"><div class="num">{{ stats.remaining_matches }}</div><div class="label">{{ t('remaining_matches') }}</div></div>
+  <div class="stat"><div class="num">{{ stats.active_hosts }}</div><div class="label">{{ t('active_hosts') }}</div></div>
+</div>
+
+{% if stats.warnings %}
+<div class="alert warn mt">
+  <strong>{{ t('question_warnings') }}:</strong>
+  {% for w in stats.warnings %} {{ w.name }} ({{ w.count }}) {% if not loop.last %}·{% endif %}{% endfor %}
+</div>
+{% endif %}
+
+<div class="card mt">
+  <h3>{{ t('remaining_by_category') }}</h3>
+  <table>
+    <tr><th>{{ t('category') }}</th><th>{{ t('available') }}</th></tr>
+    {% for c in stats.cat_counts %}
+    <tr><td>{{ c.name }}</td><td>{{ c.count }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="card">
+  <h3>{{ t('tournaments') }}</h3>
+  <table>
+    <tr><th>{{ t('name') }}</th><th>{{ t('status') }}</th><th>{{ t('actions') }}</th></tr>
+    {% for tr_ in tournaments %}
+    <tr>
+      <td><a href="/tournaments/{{ tr_.id }}"><strong>{{ tr_.name }}</strong></a></td>
+      <td><span class="badge info">{{ t('status_' + tr_.status) }}</span></td>
+      <td><a class="btn sm primary" href="/tournaments/{{ tr_.id }}">📂 {{ t('open') }}</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="3" class="muted">—</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

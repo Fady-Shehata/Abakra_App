@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ t('nav_my_matches') }}</h1>
+<div class="card">
+  {% if matches %}
+  <table>
+    <tr><th>{{ t('tournament') }}</th><th>الدور</th><th>{{ t('team_a') }}</th><th>{{ t('team_b') }}</th><th>{{ t('scheduled_time') }}</th><th>{{ t('status') }}</th><th></th></tr>
+    {% for m in matches %}
+    <tr>
+      <td>{{ m.tournament.name }}</td>
+      <td>{{ m.round_name or m.stage }}</td>
+      <td>{{ m.team_a.name if m.team_a else '—' }}</td>
+      <td>{{ m.team_b.name if m.team_b else '—' }}</td>
+      <td>{{ m.scheduled_at.strftime('%Y-%m-%d %H:%M') if m.scheduled_at else '—' }}</td>
+      <td><span class="badge info">{{ t('match_status_' + m.status) }}</span></td>
+      <td>{% if m.status != 'completed' %}<a class="btn sm primary" href="/game/{{ m.id }}">{{ t('start_match') }}</a>{% else %}<a class="btn sm ghost" href="/game/{{ m.id }}">{{ t('match_history') }}</a>{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p class="muted">{{ t('my_matches_empty') }}</p>
+  {% endif %}
+</div>
+{% endblock %}

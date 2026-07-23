@@ -1,0 +1,279 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ t('questions') }}</h1>
+
+{% if summary %}
+<div class="card">
+  <h3>{{ t('import_summary') }} — {{ summary.workbook_name }}</h3>
+  {% if summary.errors %}<div class="alert error">{{ summary.errors|join(' · ') }}</div>{% endif %}
+  {% if summary.warnings %}<div class="alert warn">{{ summary.warnings|join(' · ') }}</div>{% endif %}
+  <div class="grid cols-4">
+    <div class="stat"><div class="num">{{ summary.worksheets_detected }}</div><div class="label">{{ t('worksheets_detected') }}</div></div>
+    <div class="stat"><div class="num">{{ summary.worksheets_processed }}</div><div class="label">{{ t('worksheets_processed') }}</div></div>
+    <div class="stat"><div class="num">{{ summary.rows_processed }}</div><div class="label">{{ t('rows_processed') }}</div></div>
+    <div class="stat"><div class="num">{{ summary.questions_imported }}</div><div class="label">{{ t('questions_imported') }}</div></div>
+    <div class="stat"><div class="num">{{ summary.duplicates_skipped }}</div><div class="label">{{ t('duplicates_skipped') }}</div></div>
+    <div class="stat"><div class="num">{{ summary.invalid_rows }}</div><div class="label">{{ t('invalid_rows') }}</div></div>
+    <div class="stat"><div class="num">{{ summary.worksheets_with_warnings }}</div><div class="label">{{ t('worksheets_with_warnings') }}</div></div>
+    <div class="stat"><div class="num">{{ summary.duration_seconds }}s</div><div class="label">{{ t('import_duration') }}</div></div>
+  </div>
+</div>
+{% endif %}
+
+<div class="grid" style="grid-template-columns: 1fr 1fr;">
+  <div class="card">
+    <h3>{{ t('import_questions') }}</h3>
+    <form method="post" action="/questions/import" enctype="multipart/form-data">
+      <label>{{ t('select_category') }}</label>
+      <select name="category_id" required>
+        {% for c in categories %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+      </select>
+      <label>{{ t('upload_workbook') }} (.xlsx)</label>
+      <input type="file" name="file" accept=".xlsx,.xlsm" required data-file-picker="اختيار ملف" />
+      <p class="help">تُعالَج جميع أوراق العمل تلقائياً؛ تُتخطى الصفوف غير الصالحة دون إيقاف الباقي.</p>
+      <button class="btn mt" type="submit">{{ t('import_questions') }}</button>
+    </form>
+  </div>
+  <div class="card">
+    <h3>{{ t('add_question') }}</h3>
+    <form method="post" action="/questions/manual" id="manual-question-form">
+      <div class="row">
+        <div><label>{{ t('category') }}</label>
+          <select name="category_id">{% for c in categories %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select></div>
+        <div><label>{{ t('question_type') }}</label>
+          <select name="qtype" id="qtype">
+            <option value="mc">{{ t('qtype_mc') }}</option>
+            <option value="tf">{{ t('qtype_tf') }}</option>
+            <option value="open">{{ t('qtype_open') }}</option>
+          </select></div>
+      </div>
+      <label>{{ t('question_text') }}</label>
+      <textarea name="text" rows="2" required></textarea>
+      <div id="choices-block">
+        <div class="row">
+          <div><label>{{ t('choice_a') }}</label><input name="a" data-choice="أ"/></div>
+          <div><label>{{ t('choice_b') }}</label><input name="b" data-choice="ب"/></div>
+        </div>
+        <div class="row">
+          <div><label>{{ t('choice_c') }}</label><input name="c" data-choice="ج"/></div>
+          <div><label>{{ t('choice_d') }}</label><input name="d" data-choice="د"/></div>
+        </div>
+      </div>
+      <label>{{ t('correct_answer') }}</label>
+      <div class="answer-picker" id="answer-picker"></div>
+      <input name="answer" id="answer-field" required />
+      <p class="help">اضغط على أي اختيار أعلاه لضبطه كالإجابة الصحيحة، أو اكتب الإجابة يدوياً.</p>
+      <button class="btn primary mt" type="submit">{{ t('add') }}</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <h3>{{ t('categories') }} <span class="member-count-badge">{{ categories|length }}</span></h3>
+  <div class="filter-bar">
+    <input type="search" data-filter="#questions-cat-table" placeholder="🔎 بحث..." />
+  </div>
+  <table id="questions-cat-table">
+    <thead><tr><th>{{ t('category') }}</th><th>{{ t('questions') }}</th></tr></thead>
+    <tbody>
+      {% for c in categories %}<tr><td>{{ c.name }}</td><td>{{ counts[c.id] }}</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if questions %}
+<div class="card">
+  <h3>{{ t('browse_questions') }} <span class="member-count-badge">{{ questions|length }}</span></h3>
+  <div class="filter-bar">
+    <input type="search" data-filter="#questions-manage-table" placeholder="🔎 بحث..." />
+  </div>
+  <table id="questions-manage-table">
+    <thead>
+      <tr>
+        <th>{{ t('question_text') }}</th>
+        <th>{{ t('correct_answer') }}</th>
+        <th>{{ t('category') }}</th>
+        <th>{{ t('question_source') }}</th>
+        <th>{{ t('question_active') }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for q in questions %}
+      <tr id="qrow-{{ q.id }}">
+        <td>
+          <div style="max-width:520px">
+            <div style="font-weight:600">{{ q.text or q.code }}</div>
+            <div class="muted" style="font-size:12px">{{ q.code }}{% if q.difficulty %} · {{ q.difficulty }}{% endif %}</div>
+          </div>
+        </td>
+        <td>{{ q.answer }}</td>
+        <td>
+          <form method="post" action="/questions/{{ q.id }}/move" class="row" style="gap:6px">
+            <select name="category_id" style="min-width:140px">
+              {% for c in categories %}
+              <option value="{{ c.id }}" {% if c.id == q.category_id %}selected{% endif %}>{{ c.name }}</option>
+              {% endfor %}
+            </select>
+            <button class="btn sm ghost" type="submit" title="{{ t('save') }}">💾</button>
+          </form>
+        </td>
+        <td>
+          {% if q.source_kind == 'manual' %}
+            <span class="badge on">{{ t('question_source_manual') }}</span>
+          {% else %}
+            <span class="badge info">{{ t('question_source_import') }}</span>
+          {% endif %}
+        </td>
+        <td>
+          <form method="post" action="/questions/{{ q.id }}/toggle-active" class="inline-toggle">
+            {% if q.is_active %}<button class="on" type="submit">{{ t('yes') }}</button>
+            {% else %}<button class="off" type="submit">{{ t('no') }}</button>{% endif %}
+          </form>
+        </td>
+        <td style="white-space:nowrap">
+          {% if q.source_kind == 'manual' %}
+          <button type="button" class="btn sm ghost" data-edit-question='{{ {"id": q.id, "text": q.text, "qtype": q.qtype, "choices": q.choices, "answer": q.answer, "explanation": q.explanation, "difficulty": q.difficulty}|tojson }}' title="{{ t('edit_question') }}">✏️</button>
+          {% endif %}
+          <form method="post" action="/questions/{{ q.id }}/delete" style="display:inline"
+                data-confirm="{{ t('confirm_delete_question') }}" data-confirm-kind="danger">
+            <button class="btn sm danger" type="submit" title="{{ t('delete') }}">🗑️</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const form       = document.getElementById('manual-question-form');
+    if (!form) return;
+    const qtypeSel   = document.getElementById('qtype');
+    const choicesBox = document.getElementById('choices-block');
+    const picker     = document.getElementById('answer-picker');
+    const answerFld  = document.getElementById('answer-field');
+
+    function renderPicker() {
+      const qtype = qtypeSel.value;
+      picker.innerHTML = '';
+      if (qtype === 'open') {
+        choicesBox.style.display = 'none';
+        picker.style.display = 'none';
+        answerFld.style.display = '';
+        return;
+      }
+      choicesBox.style.display = qtype === 'mc' ? '' : 'none';
+      picker.style.display = '';
+      answerFld.style.display = '';
+
+      const options = qtype === 'mc'
+        ? Array.from(choicesBox.querySelectorAll('input[data-choice]')).map((f) => ({
+            key: f.dataset.choice, value: f.value || f.dataset.choice, input: f,
+          }))
+        : [{ key: 'صح', value: 'صح' }, { key: 'خطأ', value: 'خطأ' }];
+
+      options.forEach((opt) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'ans-btn';
+        b.textContent = opt.key + (opt.value && opt.value !== opt.key ? ' — ' + opt.value : '');
+        b.addEventListener('click', () => {
+          answerFld.value = opt.value || opt.key;
+          picker.querySelectorAll('.ans-btn').forEach((x) => x.classList.remove('selected'));
+          b.classList.add('selected');
+        });
+        picker.appendChild(b);
+      });
+    }
+
+    qtypeSel.addEventListener('change', renderPicker);
+    choicesBox.addEventListener('input', () => { if (qtypeSel.value === 'mc') renderPicker(); });
+    renderPicker();
+  })();
+
+  // ---- Edit-question modal (manual questions only) ----------------------
+  (function () {
+    const editButtons = document.querySelectorAll('[data-edit-question]');
+    if (!editButtons.length) return;
+
+    let modal = null;
+    function build(data) {
+      close();
+      const c = data.choices || ['', '', '', ''];
+      while (c.length < 4) c.push('');
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-backdrop';
+      overlay.innerHTML = `
+        <div class="modal" role="dialog" aria-modal="true" style="max-width:640px;max-height:90vh;overflow:auto">
+          <h3>{{ t('edit_question') }}</h3>
+          <form method="post" action="/questions/${data.id}/edit">
+            <label>{{ t('question_text') }}</label>
+            <textarea name="text" rows="3" required style="width:100%"></textarea>
+            <div class="row mt" style="gap:8px">
+              <div style="flex:1">
+                <label>{{ t('question_type') }}</label>
+                <select name="qtype" style="width:100%">
+                  <option value="mc">MC</option>
+                  <option value="tf">True/False</option>
+                  <option value="open">Open</option>
+                </select>
+              </div>
+              <div style="flex:1">
+                <label>{{ t('difficulty') }}</label>
+                <input name="difficulty" style="width:100%" />
+              </div>
+            </div>
+            <div class="mt" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+              <label>أ <input name="a" style="width:100%" /></label>
+              <label>ب <input name="b" style="width:100%" /></label>
+              <label>ج <input name="c" style="width:100%" /></label>
+              <label>د <input name="d" style="width:100%" /></label>
+            </div>
+            <label class="mt">{{ t('correct_answer') }}</label>
+            <input name="answer" required style="width:100%" />
+            <label class="mt">{{ t('explanation') }}</label>
+            <textarea name="explanation" rows="2" style="width:100%"></textarea>
+            <div class="controls mt" style="justify-content:flex-end">
+              <button type="button" class="btn sm" data-close>{{ t('cancel') }}</button>
+              <button type="submit" class="btn primary sm">{{ t('save') }}</button>
+            </div>
+          </form>
+        </div>`;
+      document.body.appendChild(overlay);
+      modal = overlay;
+
+      const f = overlay.querySelector('form');
+      f.text.value        = data.text || '';
+      f.qtype.value       = data.qtype || 'mc';
+      f.a.value           = c[0] || '';
+      f.b.value           = c[1] || '';
+      f.c.value           = c[2] || '';
+      f.d.value           = c[3] || '';
+      f.answer.value      = data.answer || '';
+      f.explanation.value = data.explanation || '';
+      f.difficulty.value  = data.difficulty || '';
+
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+      overlay.querySelector('[data-close]').addEventListener('click', close);
+      document.addEventListener('keydown', escClose);
+    }
+    function escClose(e) { if (e.key === 'Escape') close(); }
+    function close() {
+      if (modal) { modal.remove(); modal = null; }
+      document.removeEventListener('keydown', escClose);
+    }
+
+    editButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        try { build(JSON.parse(btn.dataset.editQuestion)); }
+        catch (e) { console.error(e); }
+      });
+    });
+  })();
+</script>
+{% endblock %}

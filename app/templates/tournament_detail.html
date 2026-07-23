@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ tour.name }} <span class="badge info">{{ t('status_' + tour.status) }}</span></h1>
+<p class="muted">{{ tour.description or '' }}</p>
+<div class="controls">
+  {% if tour.status == 'draft' %}
+  <form method="post" action="/tournaments/{{ tour.id }}/activate"><button class="btn success sm">{{ t('status_active') }}</button></form>
+  {% endif %}
+</div>
+
+<div class="grid" style="grid-template-columns: 1fr 1fr;">
+  <div class="card">
+    <h3>{{ t('participating_teams') }} <span class="member-count-badge">{{ tour.teams|length }}</span></h3>
+    {% set available = all_teams | rejectattr('id', 'in', part_ids) | list %}
+    {% if available %}
+    <form method="post" action="/tournaments/{{ tour.id }}/add-teams" id="add-teams-form">
+      <label>{{ t('add') }} — {{ t('participating_teams') }}</label>
+      <div class="row" style="align-items:flex-end">
+        <div>
+          <select id="team-picker">
+            <option value="">— اختر فريقاً —</option>
+            {% for team in available %}<option value="{{ team.id }}" data-name="{{ team.name }}{% if team.level %} ({{ team.level }}){% endif %}">{{ team.name }}{% if team.level %} — {{ team.level }}{% endif %}</option>{% endfor %}
+          </select>
+        </div>
+        <div style="flex:0"><button class="btn sm ghost" type="button" id="add-team-chip">+ {{ t('add') }}</button></div>
+        <div style="flex:0"><button class="btn sm primary" type="submit" id="save-teams-btn" disabled>حفظ الفرق</button></div>
+      </div>
+      <div class="chip-list" id="team-chips"></div>
+      <p class="help">أضف عدة فرق ثم اضغط "حفظ الفرق" لإضافتهم دفعة واحدة.</p>
+    </form>
+    {% else %}
+    <p class="muted">لا توجد فرق متاحة للإضافة.</p>
+    {% endif %}
+
+    <ul class="mt" id="current-teams">
+      {% for tt in tour.teams %}
+      <li>
+        {{ tt.team.name }}{% if tt.team.level %} <span class="badge info">{{ tt.team.level }}</span>{% endif %}
+        <form method="post" action="/tournaments/{{ tour.id }}/remove-team/{{ tt.team_id }}"
+              style="display:inline-block; margin-inline-start:8px"
+              data-confirm="سيتم إزالة الفريق: {{ tt.team.name }}"
+              data-confirm-ok="إزالة">
+          <button class="btn sm danger" type="submit">×</button>
+        </form>
+      </li>
+      {% else %}<li class="muted">لا فرق مسجلة بعد.</li>{% endfor %}
+    </ul>
+  </div>
+
+  <div class="card">
+    <h3>{{ t('groups') }}</h3>
+    <form method="post" action="/tournaments/{{ tour.id }}/generate-groups" class="row">
+      <div><label>{{ t('number_of_groups') }}</label><input type="number" name="num_groups" value="1" min="1"/></div>
+      <div style="flex:0;align-self:end"><button class="btn sm">{{ t('generate_groups') }}</button></div>
+    </form>
+    <div style="border-top:1px solid var(--border-color); margin-top:12px; padding-top:12px">
+      <h4 style="margin:0 0 6px">🔢 {{ t('sequential_fill') }}</h4>
+      <p class="muted" style="margin:0 0 8px; font-size:.85rem">{{ t('sequential_desc') }}</p>
+      <form method="post" action="/tournaments/{{ tour.id }}/generate-groups-sequential" class="row" style="flex-wrap:wrap; gap:10px; align-items:flex-end">
+        <div>
+          <label>{{ t('teams_per_group') }}</label>
+          <input type="number" name="teams_per_group" value="4" min="1" style="width:90px"/>
+        </div>
+        <div style="align-self:center">
+          <label style="display:flex; align-items:center; gap:6px">
+            <input type="checkbox" name="also_matches" value="1" checked/>
+            <span>{{ t('also_generate_matches') }}</span>
+          </label>
+        </div>
+        <div style="flex:0"><button class="btn sm primary">⚡ {{ t('run_sequential') }}</button></div>
+      </form>
+    </div>
+    <form method="post" action="/tournaments/{{ tour.id }}/generate-group-matches" class="mt">
+      <button class="btn sm ghost">توليد مباريات المجموعات</button>
+    </form>
+    <form method="post" action="/tournaments/{{ tour.id }}/generate-bracket" class="row mt">
+      <div><label>{{ t('qualifiers_per_group') }}</label><input type="number" name="qualifiers" value="2" min="1"/></div>
+      <div style="flex:0;align-self:end"><button class="btn sm primary">{{ t('generate_bracket') }}</button></div>
+    </form>
+  </div>
+</div>
+
+{# ---------- Manual group assignment (per-team dropdown) ---------- #}
+{% if tour.teams %}
+<div class="card">
+  <h3>✋ 1️⃣ {{ t('assign_groups') }}</h3>
+  <p class="muted" style="margin-top:0">{{ t('manual_build_desc') }}</p>
+  <form method="post" action="/tournaments/{{ tour.id }}/groups/assign">
+    <div class="row" style="gap:10px; margin-bottom:10px; align-items:flex-end">
+      <div>
+        <label>{{ t('number_of_groups') }}</label>
+        <input type="number" id="td-num-groups" min="1" max="16"
+               value="{{ (tour.groups|length) if tour.groups else 2 }}" style="width:90px"/>
+      </div>
+      <div class="muted" style="align-self:center">
+        👥 {{ tour.teams|length }} · 🅰️ {{ tour.groups|length }}
+      </div>
+    </div>
+    <table style="width:100%">
+      <thead><tr><th>{{ t('team') }}</th><th style="width:200px">{{ t('group') }}</th></tr></thead>
+      <tbody id="td-team-rows">
+      {% for tt in tour.teams %}
+        {% set team = tt.team %}
+        {% set cur = group_index_by_team.get(team.id, -1) %}
+        <tr>
+          <td>
+            {{ team.name }}
+            {% if team.level %}<span class="badge sm">{{ team.level }}</span>{% endif %}
+          </td>
+          <td>
+            <select name="team_group_{{ team.id }}" data-current="{{ cur }}" class="td-group-sel">
+              {# Options are (re)filled by JS whenever num-groups changes. #}
+            </select>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    <input type="hidden" name="redirect_to" value="/tournaments/{{ tour.id }}"/>
+    <div class="row" style="gap:8px; margin-top:12px">
+      <button class="btn primary" type="submit">💾 {{ t('save_group_assignment') }}</button>
+      <span class="muted" style="align-self:center">{{ t('sequential_desc') }}</span>
+    </div>
+  </form>
+</div>
+<script>
+(function () {
+  const numInput = document.getElementById('td-num-groups');
+  const selects = document.querySelectorAll('#td-team-rows .td-group-sel');
+  function repopulate() {
+    const n = Math.max(1, parseInt(numInput.value || '1', 10));
+    selects.forEach(sel => {
+      const cur = parseInt(sel.dataset.current || '-1', 10);
+      // Preserve any user-changed selection between renders.
+      const active = sel.value !== '' ? parseInt(sel.value, 10) : cur;
+      let opts = '<option value="-1">— {{ t("unassigned") }} —</option>';
+      for (let i = 0; i < n; i++) {
+        const sel_attr = (i === active) ? ' selected' : '';
+        opts += `<option value="${i}"${sel_attr}>${String.fromCharCode(65 + i)}</option>`;
+      }
+      sel.innerHTML = opts;
+      if (active < 0 || active >= n) sel.value = '-1';
+    });
+  }
+  numInput.addEventListener('input', repopulate);
+  repopulate();
+})();
+</script>
+{% endif %}
+
+{% for gt in group_tables %}
+<div class="card">
+  <div class="row" style="justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap">
+    <h3 style="margin:0">{{ gt.group.name }} — {{ t('standings') }}</h3>
+    <div class="row" style="gap:6px; flex-wrap:wrap; align-items:center">
+      <form method="post" action="/groups/{{ gt.group.id }}/rename" class="row" style="gap:4px">
+        <input type="text" name="name" value="{{ gt.group.name }}" required style="width:180px"/>
+        <button class="btn sm">✏️ {{ t('rename_group') }}</button>
+      </form>
+      <form method="post" action="/groups/{{ gt.group.id }}/delete"
+            data-confirm="{{ t('confirm_delete_group') }}" style="display:inline">
+        <button class="btn sm danger">🗑️ {{ t('delete_group') }}</button>
+      </form>
+    </div>
+  </div>
+  <table>
+    <tr><th>{{ t('rank') }}</th><th>{{ t('team') }}</th><th>{{ t('played') }}</th><th>{{ t('won') }}</th><th>{{ t('drawn') }}</th><th>{{ t('lost') }}</th><th>{{ t('points') }}</th><th>{{ t('gf') }}</th><th>{{ t('ga') }}</th><th>{{ t('gd') }}</th></tr>
+    {% for r in gt.rows %}
+    <tr><td>{{ r.rank }}</td><td>{{ r.team_name }}</td><td>{{ r.played }}</td><td>{{ r.won }}</td><td>{{ r.drawn }}</td><td>{{ r.lost }}</td><td><strong>{{ r.points }}</strong></td><td>{{ r.gf }}</td><td>{{ r.ga }}</td><td>{{ r.gd }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endfor %}
+
+{% if bracket %}
+<div class="card">
+  <h3>{{ t('bracket') }}</h3>
+  <div class="bracket">
+    {% for rnd in bracket %}
+    <div class="round">
+      <div class="muted right">{{ rnd.round.name }}</div>
+      {% for s in rnd.slots %}
+      <div class="slot">
+        <div class="team {{ 'win' if s.match and s.match.winner_team_id == s.slot.team_a_id else '' }}">{{ s.team_a.name if s.team_a else '—' }} {% if s.match %}<span class="muted">({{ s.match.score_a }})</span>{% endif %}</div>
+        <div class="team {{ 'win' if s.match and s.match.winner_team_id == s.slot.team_b_id else '' }}">{{ s.team_b.name if s.team_b else '—' }} {% if s.match %}<span class="muted">({{ s.match.score_b }})</span>{% endif %}</div>
+        {% if s.match %}<div class="muted" style="font-size:.75rem">{{ t('match_status_' + s.match.status) }} · {{ s.match.host.display_name if s.match.host else '—' }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <h3>{{ t('matches') }} <span class="member-count-badge">{{ matches|length }}</span></h3>
+  <div class="filter-bar">
+    <input type="search" data-filter="#tour-matches-table" placeholder="🔎 بحث بالفريق أو الدور..." />
+  </div>
+  <table id="tour-matches-table">
+    <thead><tr><th>الدور</th><th>{{ t('team_a') }}</th><th>{{ t('team_b') }}</th><th>{{ t('score') }}</th><th>{{ t('status') }}</th></tr></thead>
+    <tbody>
+    {% for m in matches %}
+    <tr>
+      <td>{{ m.round_name or m.stage }}</td>
+      <td>{{ m.team_a.name if m.team_a else '—' }}</td>
+      <td>{{ m.team_b.name if m.team_b else '—' }}</td>
+      <td>{{ m.score_a }} - {{ m.score_b }}</td>
+      <td><span class="badge info">{{ t('match_status_' + m.status) }}</span></td>
+    </tr>
+    {% else %}<tr><td colspan="5" class="muted">—</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const picker = document.getElementById('team-picker');
+    const addBtn = document.getElementById('add-team-chip');
+    const saveBtn = document.getElementById('save-teams-btn');
+    const chipList = document.getElementById('team-chips');
+    const form = document.getElementById('add-teams-form');
+    if (!picker || !addBtn || !chipList || !form) return;
+
+    const chosen = new Map();
+
+    function refresh() {
+      chipList.innerHTML = '';
+      chosen.forEach((name, id) => {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+        chip.innerHTML = '<span>' + name + '</span><button class="chip-x" type="button" aria-label="remove">×</button>' +
+                         '<input type="hidden" name="team_ids" value="' + id + '">';
+        chip.querySelector('.chip-x').addEventListener('click', () => {
+          chosen.delete(id); refresh();
+        });
+        chipList.appendChild(chip);
+      });
+      saveBtn.disabled = chosen.size === 0;
+    }
+
+    addBtn.addEventListener('click', () => {
+      const opt = picker.selectedOptions[0];
+      if (!opt || !opt.value) { picker.focus(); return; }
+      const id = opt.value;
+      if (chosen.has(id)) return;
+      chosen.set(id, opt.dataset.name || opt.textContent);
+      opt.disabled = true;
+      picker.value = '';
+      refresh();
+    });
+  })();
+</script>
+{% endblock %}

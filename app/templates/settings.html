@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ t('settings') }}</h1>
+<div class="card" style="max-width:480px">
+  <h3>{{ t('default_language') }}</h3>
+  <form method="post" action="/settings/language">
+    <select name="lang">
+      {% for l in languages %}<option value="{{ l }}" {{ 'selected' if l==default_lang else '' }}>{{ t('arabic') if l.startswith('ar') else t('english') }}</option>{% endfor %}
+    </select>
+    <button class="btn primary mt" type="submit">{{ t('save') }}</button>
+    <p class="help">تُطبَّق اللغة الافتراضية على جميع المستخدمين وتبقى بعد إعادة التشغيل.</p>
+  </form>
+</div>
+{% endblock %}

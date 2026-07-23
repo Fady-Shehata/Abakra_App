@@ -1,0 +1,463 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+  /* Match row toggle: view row visible, edit row hidden by default. When
+     the match is in "edit" mode, the parent <tbody> gets an .editing-<mid>
+     data attribute-driven state - but a simpler class swap on both rows is
+     used here. */
+  #matches-table .edit-row { display: none; }
+  #matches-table .edit-row.open { display: table-row; }
+  #matches-table .view-row.hidden { display: none; }
+  /* Uniform square action icons in the matches table so ✏️ and 🗑️
+     render at the same visual size regardless of button padding. */
+  #matches-table .icon-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    line-height: 1;
+  }
+</style>
+<h1>{{ t('matches') }}</h1>
+
+{# ---------- Match Builder ---------- #}
+<div class="card">
+  <h3>🛠️ {{ t('new_match') }}</h3>
+  {% if not tournaments %}
+    <p class="muted">{{ t('not_found') }} — <a href="/tournaments">{{ t('new_tournament') }}</a></p>
+  {% endif %}
+  <div class="row" style="gap:8px; margin-bottom:12px; align-items:center">
+    <label style="flex:0 0 auto"><strong>{{ t('select_tournament') }}:</strong></label>
+    <select id="builder-tournament" style="min-width:260px">
+      <option value="">— {{ t('select_tournament') }} —</option>
+      {% for tr in tournaments %}<option value="{{ tr.id }}"{% if tournaments|length == 1 %} selected{% endif %}>{{ tr.name }}</option>{% endfor %}
+    </select>
+    <span id="builder-tour-info" class="muted" style="flex:1"></span>
+  </div>
+
+  <div class="tabs" role="tablist" style="display:flex; gap:6px; margin-bottom:10px">
+    <button type="button" class="btn sm" data-mode="auto" aria-selected="true">🎲 {{ t('auto_build') }}</button>
+    <button type="button" class="btn sm ghost" data-mode="manual" aria-selected="false">✋ {{ t('manual_build') }}</button>
+  </div>
+
+  {# ---- AUTO MODE PANEL ---- #}
+  <div id="mode-auto" class="mode-panel">
+    <p class="muted" style="margin-top:0">{{ t('auto_build_desc') }}</p>
+    <form method="post" id="auto-build-form" class="row" style="gap:10px; flex-wrap:wrap; align-items:flex-end">
+      <div>
+        <label>{{ t('number_of_groups') }}</label>
+        <input type="number" name="num_groups" min="1" max="16" value="2" required style="width:90px"/>
+      </div>
+      <div>
+        <label>{{ t('qualifiers_per_group') }}</label>
+        <input type="number" name="qualifiers" min="1" max="8" value="2" style="width:90px"/>
+      </div>
+      <div>
+        <label style="display:flex; align-items:center; gap:6px">
+          <input type="checkbox" name="include_bracket" value="1" checked/>
+          <span>{{ t('include_bracket') }}</span>
+        </label>
+      </div>
+      <input type="hidden" name="redirect_to" value="/matches"/>
+      <div style="flex:0"><button class="btn" type="submit">⚡ {{ t('run_auto_build') }}</button></div>
+    </form>
+
+    <div style="border-top:1px solid var(--border-color); margin-top:14px; padding-top:12px">
+      <h4 style="margin:0 0 6px">🔢 {{ t('sequential_fill') }}</h4>
+      <p class="muted" style="margin:0 0 8px; font-size:.85rem">{{ t('sequential_desc') }}</p>
+      <form method="post" id="seq-build-form" class="row" style="gap:10px; flex-wrap:wrap; align-items:flex-end">
+        <div>
+          <label>{{ t('teams_per_group') }}</label>
+          <input type="number" name="teams_per_group" min="1" max="16" value="4" required style="width:90px"/>
+        </div>
+        <div>
+          <label style="display:flex; align-items:center; gap:6px">
+            <input type="checkbox" name="also_matches" value="1" checked/>
+            <span>{{ t('also_generate_matches') }}</span>
+          </label>
+        </div>
+        <input type="hidden" name="redirect_to" value="/matches"/>
+        <div style="flex:0"><button class="btn primary" type="submit">⚡ {{ t('run_sequential') }}</button></div>
+      </form>
+    </div>
+  </div>
+
+  {# ---- MANUAL MODE PANEL ---- #}
+  <div id="mode-manual" class="mode-panel" style="display:none">
+    <p class="muted" style="margin-top:0; margin-bottom:16px">{{ t('manual_build_desc') }}</p>
+
+    <div class="card" style="background:var(--surface-2); border:1px solid var(--border-color); padding:14px">
+      <h4 style="margin-top:0">1️⃣ {{ t('assign_groups') }}</h4>
+      <form method="post" id="assign-groups-form">
+        <div class="row" style="gap:10px; margin-bottom:10px">
+          <div>
+            <label>{{ t('number_of_groups') }}</label>
+            <input type="number" id="manual-num-groups" min="1" max="16" value="2" style="width:90px"/>
+          </div>
+        </div>
+        <div id="team-assignment-list" class="muted">— {{ t('select_tournament') }} —</div>
+        <input type="hidden" name="redirect_to" value="/matches"/>
+        <div style="margin-top:10px"><button class="btn" type="submit">💾 {{ t('save_group_assignment') }}</button></div>
+      </form>
+    </div>
+
+    <div class="card" style="background:var(--surface-2); border:1px solid var(--border-color); padding:14px; margin-top:12px">
+      <h4 style="margin-top:0">2️⃣ {{ t('add_match_manual') }}</h4>
+      <form method="post" action="/matches/create" id="manual-match-form" class="row" style="gap:10px; flex-wrap:wrap; align-items:flex-end">
+        <input type="hidden" name="tournament_id" id="mm-tournament-id"/>
+        <div>
+          <label>{{ t('section') }}</label>
+          <select name="stage" id="mm-stage">
+            <option value="group">{{ t('stage_group') }}</option>
+            <option value="knockout">{{ t('stage_knockout') }}</option>
+          </select>
+        </div>
+        <div id="mm-group-wrap">
+          <label>{{ t('select_group') }}</label>
+          <select name="group_id" id="mm-group"><option value="0">—</option></select>
+        </div>
+        <div>
+          <label>{{ t('team_a') }}</label>
+          <select name="team_a_id" id="mm-team-a" required><option value="">—</option></select>
+        </div>
+        <div>
+          <label>{{ t('team_b') }}</label>
+          <select name="team_b_id" id="mm-team-b" required><option value="">—</option></select>
+        </div>
+        <div>
+          <label>{{ t('match_time') }}</label>
+          <input type="datetime-local" name="scheduled_at"/>
+        </div>
+        <div>
+          <label>{{ t('assign_host') }}</label>
+          <select name="host_id">
+            <option value="0">—</option>
+            {% for h in hosts %}<option value="{{ h.id }}">{{ h.display_name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>{{ t('round') }}</label>
+          <input type="text" name="round_name" placeholder="—" style="width:140px"/>
+        </div>
+        <div style="flex:0"><button class="btn" type="submit">➕ {{ t('add') }}</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ---------- Existing Matches Table ---------- #}
+<div class="card">
+  <h3>{{ t('matches') }} <span class="member-count-badge">{{ matches|length }}</span></h3>
+  <div class="filter-bar">
+    <input type="search" data-filter="#matches-table" placeholder="🔎 بحث بالفريق أو الدور أو البطولة..." />
+  </div>
+  <table id="matches-table">
+    <thead><tr><th>{{ t('tournament') }}</th><th>{{ t('round') }}</th><th>{{ t('team_a') }}</th><th>{{ t('team_b') }}</th><th>{{ t('assigned_host') }}</th><th>{{ t('status') }}</th><th>{{ t('actions') }}</th></tr></thead>
+    <tbody>
+    {% for m in matches %}
+    <tr id="view-{{ m.id }}" class="view-row">
+      <td>{{ m.tournament.name }}</td>
+      <td>{{ m.round_name or m.stage }}</td>
+      <td>{{ m.team_a.name if m.team_a else '—' }}</td>
+      <td>{{ m.team_b.name if m.team_b else '—' }}</td>
+      <td>
+        <form method="post" action="/matches/{{ m.id }}/assign" class="row" style="gap:6px">
+          <div><select name="host_id">
+            <option value="">—</option>
+            {% for h in hosts %}<option value="{{ h.id }}" {{ 'selected' if m.host_id==h.id else '' }}>{{ h.display_name }}</option>{% endfor %}
+          </select></div>
+          <div><input type="datetime-local" name="scheduled_at" value="{{ m.scheduled_at.strftime('%Y-%m-%dT%H:%M') if m.scheduled_at else '' }}"/></div>
+          <div style="flex:0"><button class="btn sm">{{ t('assign_host') }}</button></div>
+        </form>
+      </td>
+      <td><span class="badge info">{{ t('match_status_' + m.status) }}</span> {{ m.score_a }}-{{ m.score_b }}</td>
+      <td>
+        <div style="display:inline-flex; align-items:center; gap:6px; vertical-align:middle">
+          <a class="btn sm ghost" href="/game/{{ m.id }}">{{ t('match') }}</a>
+          {% if m.status in ('scheduled', 'ready') %}
+          <button type="button" class="btn sm ghost icon-btn" data-edit-open="{{ m.id }}" title="{{ t('edit_match') }}">✏️</button>
+          <form method="post" action="/matches/{{ m.id }}/delete"
+                data-confirm="{{ t('confirm_delete_match') }}" style="display:contents">
+            <button class="btn sm danger icon-btn" title="{{ t('confirm_delete_match') }}">🗑️</button>
+          </form>
+          {% endif %}
+        </div>
+      </td>
+    </tr>
+    {% if m.status in ('scheduled', 'ready') %}
+    <tr id="edit-{{ m.id }}" class="edit-row">
+      <td colspan="7" style="background:var(--surface-2)">
+        <form method="post" action="/matches/{{ m.id }}/edit" class="row"
+              data-edit-match data-tid="{{ m.tournament_id }}" data-mid="{{ m.id }}"
+              style="gap:10px; flex-wrap:wrap; align-items:flex-end">
+          <div>
+            <label>{{ t('section') }}</label>
+            <select name="stage" class="edit-stage">
+              <option value="group" {{ 'selected' if m.stage=='group' else '' }}>{{ t('stage_group') }}</option>
+              <option value="knockout" {{ 'selected' if m.stage=='knockout' else '' }}>{{ t('stage_knockout') }}</option>
+            </select>
+          </div>
+          <div class="edit-group-wrap">
+            <label>{{ t('select_group') }}</label>
+            <select name="group_id" class="edit-group" data-current="{{ m.group_id or 0 }}"></select>
+          </div>
+          <div>
+            <label>{{ t('team_a') }}</label>
+            <select name="team_a_id" class="edit-team-a" data-current="{{ m.team_a_id or '' }}" required></select>
+          </div>
+          <div>
+            <label>{{ t('team_b') }}</label>
+            <select name="team_b_id" class="edit-team-b" data-current="{{ m.team_b_id or '' }}" required></select>
+          </div>
+          <div>
+            <label>{{ t('match_time') }}</label>
+            <input type="datetime-local" name="scheduled_at"
+                   value="{{ m.scheduled_at.strftime('%Y-%m-%dT%H:%M') if m.scheduled_at else '' }}"/>
+          </div>
+          <div>
+            <label>{{ t('assign_host') }}</label>
+            <select name="host_id">
+              <option value="0">—</option>
+              {% for h in hosts %}<option value="{{ h.id }}" {{ 'selected' if m.host_id==h.id else '' }}>{{ h.display_name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div>
+            <label>{{ t('round') }}</label>
+            <input type="text" name="round_name" value="{{ m.round_name or '' }}" style="width:140px"/>
+          </div>
+          <div style="flex:0"><button class="btn sm">💾 {{ t('save_changes') }}</button></div>
+          <div style="flex:0"><button type="button" class="btn sm ghost" data-edit-close="{{ m.id }}">{{ t('cancel') }}</button></div>
+        </form>
+      </td>
+    </tr>
+    {% endif %}
+    {% else %}<tr><td colspan="7" class="muted">—</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+(function () {
+  const TOURS = {{ tour_data_json|safe }};
+  const $ = (s, r) => (r || document).querySelector(s);
+  const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+
+  // Tabs
+  const tabs = $$('.tabs [data-mode]');
+  tabs.forEach(btn => btn.addEventListener('click', () => {
+    tabs.forEach(b => {
+      b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+      b.classList.toggle('ghost', b !== btn);
+    });
+    $('#mode-auto').style.display  = btn.dataset.mode === 'auto'   ? '' : 'none';
+    $('#mode-manual').style.display = btn.dataset.mode === 'manual' ? '' : 'none';
+  }));
+
+  const tSel = $('#builder-tournament');
+  const autoForm = $('#auto-build-form');
+  const seqForm = $('#seq-build-form');
+  const assignForm = $('#assign-groups-form');
+  const numGroupsInput = $('#manual-num-groups');
+  const listWrap = $('#team-assignment-list');
+  const mmTid = $('#mm-tournament-id');
+  const mmStage = $('#mm-stage');
+  const mmGroupWrap = $('#mm-group-wrap');
+  const mmGroup = $('#mm-group');
+  const mmA = $('#mm-team-a');
+  const mmB = $('#mm-team-b');
+
+  function currentTour() {
+    const id = tSel.value;
+    return id && TOURS[id] ? TOURS[id] : null;
+  }
+
+  function renderAssignmentList() {
+    const t = currentTour();
+    if (!t) { listWrap.innerHTML = '<span class="muted">— {{ t("select_tournament") }} —</span>'; return; }
+    if (!t.teams.length) { listWrap.innerHTML = '<span class="muted">⚠️ {{ t("participating_teams") }}: 0 — <a href="/tournaments/' + t.id + '">{{ t("add_team_to_tournament") }}</a></span>'; return; }
+    const n = Math.max(1, parseInt(numGroupsInput.value || '1', 10));
+    // Existing group-id -> index mapping
+    const idxByGroupId = {};
+    t.groups.forEach((g, i) => { idxByGroupId[g.id] = i; });
+    const teamGroupIdx = {};
+    t.groups.forEach((g, i) => g.team_ids.forEach(tid => { teamGroupIdx[tid] = i; }));
+    const opts = ['<option value="-1">— {{ t("unassigned") }} —</option>'];
+    for (let i = 0; i < n; i++) opts.push(`<option value="${i}">${String.fromCharCode(65 + i)}</option>`);
+    let html = '<table style="width:100%"><thead><tr><th>' + '{{ t("team") }}' + '</th><th style="width:180px">' + '{{ t("group") }}' + '</th></tr></thead><tbody>';
+    t.teams.forEach(team => {
+      const cur = teamGroupIdx[team.id];
+      const optHtml = opts.map(o => {
+        const v = o.match(/value="(-?\d+)"/)[1];
+        return o.replace('value="' + v + '"',
+          'value="' + v + '"' + (String(cur) === v ? ' selected' : ''));
+      }).join('');
+      html += `<tr><td>${team.name}${team.level ? ' <span class="badge sm">' + team.level + '</span>' : ''}</td>` +
+              `<td><select name="team_group_${team.id}">${optHtml}</select></td></tr>`;
+    });
+    html += '</tbody></table>';
+    listWrap.innerHTML = html;
+  }
+
+  function fillTeamSelects() {
+    const t = currentTour();
+    const stage = mmStage.value;
+    const gid = parseInt(mmGroup.value || '0', 10);
+    mmA.innerHTML = '<option value="">—</option>';
+    mmB.innerHTML = '<option value="">—</option>';
+    if (!t) return;
+    let teamIds = null;
+    if (stage === 'group' && gid) {
+      const g = t.groups.find(g => g.id === gid);
+      if (g) teamIds = new Set(g.team_ids);
+    }
+    t.teams.forEach(team => {
+      if (teamIds && !teamIds.has(team.id)) return;
+      const label = team.name + (team.level ? ' — ' + team.level : '');
+      mmA.insertAdjacentHTML('beforeend', `<option value="${team.id}">${label}</option>`);
+      mmB.insertAdjacentHTML('beforeend', `<option value="${team.id}">${label}</option>`);
+    });
+  }
+
+  function fillGroupSelect() {
+    const t = currentTour();
+    mmGroup.innerHTML = '<option value="0">—</option>';
+    if (!t) return;
+    t.groups.forEach(g => {
+      mmGroup.insertAdjacentHTML('beforeend', `<option value="${g.id}">${g.name}</option>`);
+    });
+  }
+
+  function onTourChange() {
+    const t = currentTour();
+    const info = $('#builder-tour-info');
+    // Auto-build form action
+    autoForm.action = t ? `/tournaments/${t.id}/auto-build` : '';
+    // Sequential-fill form action
+    if (seqForm) seqForm.action = t ? `/tournaments/${t.id}/generate-groups-sequential` : '';
+    // Manual assign form action
+    assignForm.action = t ? `/tournaments/${t.id}/groups/assign` : '';
+    // Manual match tournament_id
+    mmTid.value = t ? t.id : '';
+    // Info line beside the dropdown
+    if (info) {
+      if (!t) info.textContent = '';
+      else info.innerHTML = `<span class="badge sm">👥 ${t.teams.length}</span> ` +
+                            `<span class="badge sm">🅰️ ${t.groups.length}</span>`;
+    }
+    // Init num-groups if we already have groups
+    if (t && t.groups.length) numGroupsInput.value = t.groups.length;
+    renderAssignmentList();
+    fillGroupSelect();
+    fillTeamSelects();
+  }
+
+  function onStageChange() {
+    mmGroupWrap.style.display = mmStage.value === 'group' ? '' : 'none';
+    fillTeamSelects();
+  }
+
+  tSel.addEventListener('change', onTourChange);
+  numGroupsInput.addEventListener('input', renderAssignmentList);
+  mmStage.addEventListener('change', onStageChange);
+  mmGroup.addEventListener('change', fillTeamSelects);
+
+  // Initial sync: honours a server-side <option selected> (e.g., when only one
+  // tournament exists) and also auto-selects it as a fallback.
+  if (!tSel.value && tSel.options.length === 2) { tSel.selectedIndex = 1; }
+  onTourChange();
+
+  // Confirm modal handled by smart-forms.js via `form[data-confirm]`.
+
+  // ---- Per-row edit toggles ----
+  function populateEditRow(form) {
+    const tid = form.dataset.tid;
+    const tour = TOURS[tid];
+    if (!tour) return;
+    const stageSel = form.querySelector('.edit-stage');
+    const groupSel = form.querySelector('.edit-group');
+    const groupWrap = form.querySelector('.edit-group-wrap');
+    const teamASel = form.querySelector('.edit-team-a');
+    const teamBSel = form.querySelector('.edit-team-b');
+    const curGroup = parseInt(groupSel.dataset.current || '0', 10);
+    const curA = parseInt(teamASel.dataset.current || '0', 10);
+    const curB = parseInt(teamBSel.dataset.current || '0', 10);
+
+    // Groups
+    groupSel.innerHTML = '<option value="0">—</option>';
+    tour.groups.forEach(g => {
+      groupSel.insertAdjacentHTML('beforeend',
+        `<option value="${g.id}"${g.id === curGroup ? ' selected' : ''}>${g.name}</option>`);
+    });
+
+    function fillTeams() {
+      const stage = stageSel.value;
+      const gid = parseInt(groupSel.value || '0', 10);
+      let allowed = null;
+      if (stage === 'group' && gid) {
+        const g = tour.groups.find(g => g.id === gid);
+        if (g) allowed = new Set(g.team_ids);
+      }
+      teamASel.innerHTML = '';
+      teamBSel.innerHTML = '';
+      tour.teams.forEach(team => {
+        if (allowed && !allowed.has(team.id) && team.id !== curA && team.id !== curB) return;
+        const label = team.name + (team.level ? ' — ' + team.level : '');
+        teamASel.insertAdjacentHTML('beforeend',
+          `<option value="${team.id}"${team.id === curA ? ' selected' : ''}>${label}</option>`);
+        teamBSel.insertAdjacentHTML('beforeend',
+          `<option value="${team.id}"${team.id === curB ? ' selected' : ''}>${label}</option>`);
+      });
+      groupWrap.style.display = stage === 'group' ? '' : 'none';
+    }
+    fillTeams();
+    stageSel.addEventListener('change', fillTeams);
+    groupSel.addEventListener('change', fillTeams);
+  }
+
+  // Populate all edit rows once (rows are hidden until toggled but selects
+  // still need real options for form submission when opened).
+  document.querySelectorAll('form[data-edit-match]').forEach(populateEditRow);
+
+  // Edit mode swaps the "view" row for the "edit" row so only one row per
+  // match is visible at any moment. Uses CSS classes so the toggle survives
+  // browser bfcache / back navigation cleanly.
+  function openEdit(mid) {
+    const view = document.getElementById('view-' + mid);
+    const edit = document.getElementById('edit-' + mid);
+    if (view) view.classList.add('hidden');
+    if (edit) edit.classList.add('open');
+  }
+  function closeEdit(mid) {
+    const view = document.getElementById('view-' + mid);
+    const edit = document.getElementById('edit-' + mid);
+    if (edit) edit.classList.remove('open');
+    if (view) view.classList.remove('hidden');
+  }
+  document.addEventListener('click', (ev) => {
+    const openBtn = ev.target.closest('[data-edit-open]');
+    if (openBtn) { ev.preventDefault(); openEdit(openBtn.dataset.editOpen); return; }
+    const closeBtn = ev.target.closest('[data-edit-close]');
+    if (closeBtn) { ev.preventDefault(); closeEdit(closeBtn.dataset.editClose); return; }
+  });
+
+  // When Save is clicked, close the edit row immediately so it disappears
+  // even before the redirect completes.
+  document.addEventListener('submit', (ev) => {
+    const form = ev.target.closest('form[data-edit-match]');
+    if (!form) return;
+    const mid = form.dataset.mid;
+    if (mid) closeEdit(mid);
+  }, true);
+
+  // Also close on pageshow when navigating back via bfcache — otherwise
+  // Firefox / Safari can restore a previously opened edit panel.
+  window.addEventListener('pageshow', () => {
+    document.querySelectorAll('#matches-table .edit-row.open').forEach(r => r.classList.remove('open'));
+    document.querySelectorAll('#matches-table .view-row.hidden').forEach(r => r.classList.remove('hidden'));
+  });
+})();
+</script>
+{% endblock %}

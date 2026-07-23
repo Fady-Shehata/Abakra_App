@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ t('categories') }}</h1>
+<div class="grid" style="grid-template-columns: 1fr 2fr;">
+  <div class="card">
+    <h3>{{ t('new_category') }}</h3>
+    <form method="post" action="/categories/bulk-create">
+      <label>{{ t('category_name') }}</label>
+      <div data-tag-adder
+           data-name="names"
+           data-placeholder="{{ t('category_name') }}"
+           data-add-label="+ {{ t('add') }}"
+           data-add-word-singular="فئة"
+           data-add-word-plural="فئات"></div>
+      <p class="help">أضف عدة فئات دفعة واحدة — الصق قائمة مفصولة بفواصل أو أسطر جديدة.</p>
+      <label style="margin-top:14px"><input type="checkbox" name="is_regular" checked style="width:auto"> {{ t('is_regular') }}</label>
+      <label><input type="checkbox" name="on_wheel" checked style="width:auto"> {{ t('on_wheel') }}</label>
+      <button class="btn primary mt" type="submit">{{ t('create') }}</button>
+    </form>
+  </div>
+  <div class="card">
+    <h3>{{ t('categories') }} <span class="member-count-badge">{{ categories|length }}</span></h3>
+    <div class="filter-bar">
+      <input type="search" data-filter="#categories-table" placeholder="🔎 بحث بالاسم..." />
+    </div>
+    <table id="categories-table">
+      <thead>
+        <tr>
+          <th>{{ t('category_name') }}</th>
+          <th>{{ t('is_regular') }}</th>
+          <th>{{ t('on_wheel') }}</th>
+          <th>{{ t('questions') }}</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for c in categories %}
+      <tr>
+        <td>
+          <form method="post" action="/categories/{{ c.id }}/rename" class="row" style="gap:6px">
+            <input name="name" value="{{ c.name }}" required style="min-width:180px"/>
+            <button class="btn sm ghost" type="submit" title="{{ t('save') }}">💾</button>
+          </form>
+        </td>
+        <td>
+          <form method="post" action="/categories/{{ c.id }}/toggle-regular" class="inline-toggle">
+            {% if c.is_regular %}<button class="on" type="submit">{{ t('yes') }}</button>
+            {% else %}<button class="off" type="submit">{{ t('no') }}</button>{% endif %}
+          </form>
+        </td>
+        <td>
+          <form method="post" action="/categories/{{ c.id }}/toggle-wheel" class="inline-toggle">
+            {% if c.on_wheel %}<button class="on" type="submit">{{ t('yes') }}</button>
+            {% else %}<button class="off" type="submit">{{ t('no') }}</button>{% endif %}
+          </form>
+        </td>
+        <td>{{ counts[c.id] }}</td>
+        <td>
+          {% if counts[c.id] == 0 %}
+          <form method="post" action="/categories/{{ c.id }}/delete" style="display:inline"
+                data-confirm="{{ t('confirm_delete_category') }}"
+                data-confirm-kind="danger">
+            <button class="btn sm danger" type="submit" title="{{ t('delete') }}">🗑️</button>
+          </form>
+          {% else %}
+          <span class="muted" style="font-size:12px">{{ t('category_has_questions') }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% else %}<tr><td colspan="5" class="muted">—</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

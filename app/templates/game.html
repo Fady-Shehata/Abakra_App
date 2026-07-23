@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %} · {{ t('match') }}{% endblock %}
+{% block content %}
+<div id="game" data-mid="{{ match.id }}"
+     data-labels='{
+       "reveal":"{{ t('reveal_question') }}","start_section":"{{ t('start_section') }}",
+       "finish_section":"{{ t('finish_section') }}","a_correct":"{{ t('mark_a_correct') }}",
+       "b_correct":"{{ t('mark_b_correct') }}","wrong":"{{ t('mark_wrong') }}",
+       "open_rebound":"{{ t('open_rebound') }}","rebound_correct":"{{ t('rebound_correct') }}",
+       "rebound_wrong":"{{ t('rebound_wrong') }}","skip":"{{ t('skip_question') }}",
+       "invalidate":"{{ t('invalidate_question') }}","no_answer":"{{ t('no_answer') }}",
+       "spin":"{{ t('spin_wheel') }}","joker":"{{ t('joker') }}","joker_select":"{{ t('joker_select') }}",
+       "reset_buzzer":"{{ t('reset_buzzer') }}","buzz_a":"{{ t('team_a_buzz') }}","buzz_b":"{{ t('team_b_buzz') }}",
+       "remaining":"{{ t('remaining_questions') }}","used":"{{ t('used') }}","available":"{{ t('available') }}",
+       "timer":"{{ t('timer') }}","start_timer":"{{ t('start_timer') }}","pause_timer":"{{ t('pause_timer') }}",
+       "resume_timer":"{{ t('resume_timer') }}","reset_timer":"{{ t('reset_timer') }}",
+       "complete":"{{ t('complete_match') }}","pause_match":"{{ t('pause_match') }}","resume_match":"{{ t('resume_match') }}",
+       "select_winner":"{{ t('select_winner') }}","knockout_no_draw":"{{ t('knockout_no_draw') }}",
+       "current_turn":"{{ t('current_turn') }}","spins_a":"{{ t('spins_left_a') }}","spins_b":"{{ t('spins_left_b') }}",
+       "explanation":"{{ t('explanation') }}","correct_answer":"{{ t('correct_answer') }}",
+       "show_answer":"{{ t('show_answer') }}",
+       "start_match":"{{ t('start_match') }}","return_to_ready":"{{ t('return_to_ready') }}",
+       "match_ready_hint":"{{ t('match_ready_hint') }}",
+       "father_a":"{{ t('team_a') }}","father_b":"{{ t('team_b') }}","match_history":"{{ t('match_history') }}",
+       "confirm":"{{ t('confirm') }}","cancel":"{{ t('cancel') }}","reset_usage":"{{ t('reset_usage') }}",
+       "reset_usage_confirm":"{{ t('reset_usage_confirm') }}","invalidate_reason":"{{ t('invalidate_reason') }}"
+     }'
+     data-is-admin="{{ '1' if user.role_name == ROLE_ADMIN else '0' }}">
+
+  <div class="scoreboard card">
+    <div class="team-panel a">
+      <div class="name" id="ta-name">A</div>
+      <div class="score" id="ta-score">0</div>
+    </div>
+    <div style="text-align:center">
+      <img src="/static/img/game_logo.jpg" style="height:64px" onerror="this.onerror=null;this.src='/static/img/game_logo.svg'"/>
+      <div id="match-status" class="badge info"></div>
+    </div>
+    <div class="team-panel b">
+      <div class="name" id="tb-name">B</div>
+      <div class="score" id="tb-score">0</div>
+    </div>
+  </div>
+
+  <div class="section-tabs" id="section-tabs"></div>
+
+  <div id="ready-banner" class="card hidden" style="text-align:center">
+    <p class="mt" id="ready-hint">{{ t('match_ready_hint') }}</p>
+    <div class="controls" style="justify-content:center">
+      <button class="btn primary" id="btn-start-match">{{ t('start_match') }}</button>
+    </div>
+  </div>
+
+  <div class="card" id="section-controls-card">
+    <div id="section-controls"></div>
+  </div>
+
+  <div class="card" id="qcard-wrap">
+    <div id="timer-box" class="hidden">
+      <div class="timer-display" id="timer-display">30</div>
+      <div class="controls" style="justify-content:center">
+        <button class="btn sm" id="t-start"></button>
+        <button class="btn sm" id="t-pause"></button>
+        <button class="btn sm" id="t-reset"></button>
+      </div>
+    </div>
+    <div class="qcard" id="qcard"><p class="muted" id="q-empty">—</p></div>
+    <div class="controls" id="q-controls"></div>
+  </div>
+
+  <div class="grid" style="grid-template-columns: 1fr 1fr;">
+    <div class="card">
+      <h3>{{ t('remaining_by_category') }}</h3>
+      <div id="remaining-list"></div>
+    </div>
+    <div class="card">
+      <h3>{{ t('match_history') }}</h3>
+      <div id="history-list" style="max-height:260px;overflow:auto"></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn ghost" id="btn-pause-match"></button>
+    <button class="btn primary" id="btn-complete"></button>
+    <button class="btn ghost" id="btn-reset-ready" data-confirm="{{ t('return_to_ready_confirm') }}">{{ t('return_to_ready') }}</button>
+    {% if user.role_name == ROLE_ADMIN %}
+    <button class="btn danger ghost" id="btn-reset-usage"></button>
+    {% endif %}
+  </div>
+</div>
+
+<div id="modal-root"></div>
+{% endblock %}
+{% block scripts %}<script src="{{ asset('js/game.js') }}"></script>{% endblock %}

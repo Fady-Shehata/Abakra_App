@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ t('reports') }}</h1>
+<div class="card">
+  <h3>{{ t('report_teams') }}</h3>
+  <a class="btn sm" href="/api/reports/teams.xlsx">{{ t('export_xlsx') }}</a>
+</div>
+{% for tr_ in tournaments %}
+<div class="card">
+  <h3>{{ tr_.name }}</h3>
+  <div class="controls">
+    <a class="btn sm" href="/api/reports/standings/{{ tr_.id }}.xlsx">{{ t('report_standings') }}</a>
+    <a class="btn sm" href="/api/reports/results/{{ tr_.id }}.xlsx">{{ t('report_results') }}</a>
+    <a class="btn sm" href="/api/reports/group-matches/{{ tr_.id }}.xlsx">{{ t('report_group_matches') }}</a>
+    <a class="btn sm" href="/api/reports/usage/{{ tr_.id }}.xlsx">{{ t('report_usage') }}</a>
+    <a class="btn sm ghost" href="/tournaments/{{ tr_.id }}" onclick="window.print()">{{ t('print') }}</a>
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local environment
+.env
+.env.*
+
+# Runtime storage
+data_store/
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.log
+
+# Generated exports and scratch output
+output/temp/
+pytest_*.txt
+teams_patch_tests.txt
+boot.txt
+_t.txt
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,353 @@
+// ========== البيانات ==========
+let questions = [];
+let gameQuestions = [];
+let currentIndex = 0;
+let timerInterval = null;
+let timeLeft = 30;
+let isAnswered = false;
+let currentTeam = 1; // 1 = أيمن, 2 = أيسر
+
+// نقاط الفرق
+let teamScores = { 1: 0, 2: 0 };
+let teamCorrect = { 1: 0, 2: 0 };
+let teamWrong = { 1: 0, 2: 0 };
+
+// ========== التحميل والحفظ ==========
+function loadData() {
+  const saved = localStorage.getItem("quizData");
+  if (saved) {
+    const data = JSON.parse(saved);
+    questions = data.questions || [];
+    teamScores = data.scores || { 1: 0, 2: 0 };
+    teamCorrect = data.correct || { 1: 0, 2: 0 };
+    teamWrong = data.wrong || { 1: 0, 2: 0 };
+  }
+  updateQuestionList();
+  updateTeamDisplay();
+}
+
+function saveData() {
+  localStorage.setItem(
+    "quizData",
+    JSON.stringify({
+      questions: questions,
+      scores: teamScores,
+      correct: teamCorrect,
+      wrong: teamWrong,
+    })
+  );
+}
+
+// ========== إدارة الأسئلة ==========
+function addQuestion() {
+  const text = document.getElementById("questionText").value.trim();
+  const opt1 = document.getElementById("opt1").value.trim();
+  const opt2 = document.getElementById("opt2").value.trim();
+  const opt3 = document.getElementById("opt3").value.trim();
+  const opt4 = document.getElementById("opt4").value.trim();
+  const correct = parseInt(document.getElementById("correctAnswer").value);
+  const category =
+    document.getElementById("questionCategory").value.trim() || "عام";
+
+  if (!text || !opt1 || !opt2 || !opt3 || !opt4) {
+    alert("يرجى ملء جميع الحقول!");
+    return;
+  }
+
+  questions.push({
+    id: Date.now(),
+    text,
+    options: [opt1, opt2, opt3, opt4],
+    correct,
+    category,
+    used: false,
+  });
+
+  // تفريغ الحقول
+  document.getElementById("questionText").value = "";
+  document.getElementById("opt1").value = "";
+  document.getElementById("opt2").value = "";
+  document.getElementById("opt3").value = "";
+  document.getElementById("opt4").value = "";
+  document.getElementById("questionCategory").value = "";
+
+  saveData();
+  updateQuestionList();
+  alert("✅ تم إضافة السؤال!");
+}
+
+function deleteQuestion(id) {
+  if (confirm("هل أنت متأكد من حذف هذا السؤال؟")) {
+    questions = questions.filter((q) => q.id !== id);
+    saveData();
+    updateQuestionList();
+  }
+}
+
+function updateQuestionList() {
+  const list = document.getElementById("questionList");
+  const count = document.getElementById("questionCount");
+  count.textContent = questions.length;
+
+  if (questions.length === 0) {
+    list.innerHTML =
+      '<p style="color: #888; text-align: center;">لا توجد أسئلة، أضف سؤالاً!</p>';
+    return;
+  }
+
+  list.innerHTML = questions
+    .map(
+      (q, i) => ` <div class="question-item"> <span>${i + 1}. ${q.text.substring(0, 40)}${ q.text.length > 40 ? "..." : "" } [${q.category}]</span> <div> <button onclick="deleteQuestion(${ q.id })" style="background: #e74c3c; width: auto;">🗑️</button> </div> </div> `
+    )
+    .join("");
+}
+
+function shuffleQuestions() {
+  const shuffled = [...questions];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  questions = shuffled;
+  questions.forEach((q) => (q.used = false));
+  saveData();
+  updateQuestionList();
+  alert("🔀 تم خلط الأسئلة!");
+}
+
+function clearAllQuestions() {
+  if (confirm("⚠️ هل أنت متأكد من حذف جميع الأسئلة؟")) {
+    questions = [];
+    saveData();
+    updateQuestionList();
+  }
+}
+
+function resetAll() {
+  if (confirm("🔄 إعادة تعيين كل شيء (الأسئلة والنقاط)؟")) {
+    questions = [];
+    teamScores = { 1: 0, 2: 0 };
+    teamCorrect = { 1: 0, 2: 0 };
+    teamWrong = { 1: 0, 2: 0 };
+    saveData();
+    updateQuestionList();
+    updateTeamDisplay();
+    alert("✅ تم إعادة التعيين!");
+  }
+}
+
+// ========== بدء اللعبة ==========
+function startGame() {
+  const timerVal =
+    parseInt(document.getElementById("timerDuration").value) || 30;
+  const perTeam =
+    parseInt(document.getElementById("questionsPerTeam").value) || 10;
+
+  // اختيار أسئلة لكل فريق
+  const available = questions.filter((q) => !q.used);
+  if (available.length < perTeam * 2) {
+    alert(`⚠️ لا يوجد أسئلة كافية! تحتاج ${perTeam * 2} سؤال على الأقل.`);
+    return;
+  }
+
+  // خلط واختيار الأسئلة
+  const shuffled = [...available];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  const team1Questions = shuffled.slice(0, perTeam);
+  const team2Questions = shuffled.slice(perTeam, perTeam * 2);
+
+  // ترتيب الأسئلة (فريق1 سؤال، فريق2 سؤال)
+  gameQuestions = [];
+  for (let i = 0; i < perTeam; i++) {
+    gameQuestions.push({ ...team1Questions[i], team: 1 });
+    gameQuestions.push({ ...team2Questions[i], team: 2 });
+  }
+
+  // وضع علامة مستخدمة
+  gameQuestions.forEach((q) => {
+    const original = questions.find((orig) => orig.id === q.id);
+    if (original) original.used = true;
+  });
+
+  // إعادة تعيين النقاط
+  teamScores = { 1: 0, 2: 0 };
+  teamCorrect = { 1: 0, 2: 0 };
+  teamWrong = { 1: 0, 2: 0 };
+  currentIndex = 0;
+  timeLeft = timerVal;
+
+  saveData();
+  showScreen("gameScreen");
+  updateTeamDisplay();
+  showQuestion();
+}
+
+// ========== عرض السؤال ==========
+function showQuestion() {
+  if (currentIndex >= gameQuestions.length) {
+    endGame();
+    return;
+  }
+
+  const q = gameQuestions[currentIndex];
+  currentTeam = q.team;
+  isAnswered = false;
+
+  // تحديث معلومات السؤال
+  document.getElementById("currentCategory").textContent = `📚 ${q.category}`;
+  document.getElementById("questionNumber").textContent = `${ currentIndex + 1 } / ${gameQuestions.length}`;
+  document.getElementById("questionTextDisplay").textContent = q.text;
+
+  // عرض الخيارات
+  const container = document.getElementById("optionsContainer");
+  container.innerHTML = q.options
+    .map(
+      (opt, idx) => ` <button onclick="selectAnswer(${idx})" id="opt_${idx}"> ${String.fromCharCode(65 + idx)}. ${opt} </button> `
+    )
+    .join("");
+
+  // تفعيل الأزرار
+  document
+    .querySelectorAll("#optionsContainer button")
+    .forEach((b) => (b.disabled = false));
+
+  // إظهار المؤقت
+  document.getElementById("timerDisplay").textContent = timeLeft;
+  document.getElementById("timerDisplay").className = "timer";
+  document.getElementById("nextBtn").disabled = true;
+
+  // بدء المؤقت
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    document.getElementById("timerDisplay").textContent = timeLeft;
+
+    if (timeLeft <= 5) {
+      document.getElementById("timerDisplay").classList.add("warning");
+    }
+
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      // انتهاء الوقت - اعتبارها إجابة خاطئة
+      if (!isAnswered) {
+        isAnswered = true;
+        const wrongTeam = currentTeam;
+        teamWrong[wrongTeam]++;
+        teamScores[wrongTeam] = Math.max(0, teamScores[wrongTeam] - 5);
+        updateTeamDisplay();
+        showCorrectAnswer();
+        document.getElementById("nextBtn").disabled = false;
+      }
+    }
+  }, 1000);
+
+  // إخفاء زر التالي
+  document.getElementById("nextBtn").disabled = true;
+  saveData();
+}
+
+// ========== اختيار الإجابة ==========
+function selectAnswer(selected) {
+  if (isAnswered) return;
+  isAnswered = true;
+  clearInterval(timerInterval);
+
+  const q = gameQuestions[currentIndex];
+  const isCorrect = selected === q.correct;
+  const team = currentTeam;
+
+  if (isCorrect) {
+    teamCorrect[team]++;
+    teamScores[team] += 10;
+    document.getElementById(`opt_${selected}`).classList.add("correct");
+  } else {
+    teamWrong[team]++;
+    teamScores[team] = Math.max(0, teamScores[team] - 5);
+    document.getElementById(`opt_${selected}`).classList.add("wrong");
+    showCorrectAnswer();
+  }
+
+  // تعطيل الأزرار
+  document
+    .querySelectorAll("#optionsContainer button")
+    .forEach((b) => (b.disabled = true));
+  updateTeamDisplay();
+  document.getElementById("nextBtn").disabled = false;
+  saveData();
+}
+
+function showCorrectAnswer() {
+  const q = gameQuestions[currentIndex];
+  document.getElementById(`opt_${q.correct}`).classList.add("correct");
+}
+
+// ========== السؤال التالي ==========
+function nextQuestion() {
+  currentIndex++;
+  if (currentIndex >= gameQuestions.length) {
+    endGame();
+  } else {
+    // إعادة تعيين الوقت
+    timeLeft = parseInt(document.getElementById("timerDuration").value) || 30;
+    document.getElementById("timerDisplay").className = "timer";
+    showQuestion();
+  }
+}
+
+// ========== إنهاء المسابقة ==========
+function endGame() {
+  clearInterval(timerInterval);
+  document.getElementById("questionTextDisplay").textContent =
+    "🏆 انتهت المسابقة!";
+  document.getElementById("optionsContainer").innerHTML = "";
+  document.getElementById("timerDisplay").textContent = "🎯";
+  document.getElementById("nextBtn").disabled = true;
+
+  // عرض الفائز
+  let winnerText = "";
+  if (teamScores[1] > teamScores[2]) {
+    winnerText = "🟦 الفريق الأيمن فاز! 🎉";
+  } else if (teamScores[2] > teamScores[1]) {
+    winnerText = "🟥 الفريق الأيسر فاز! 🎉";
+  } else {
+    winnerText = "🤝 تعادل!";
+  }
+  document.getElementById("currentCategory").textContent = winnerText;
+  document.getElementById("questionNumber").textContent = "🎊 نهاية المسابقة";
+}
+
+// ========== إعادة تعيين اللعبة ==========
+function resetGame() {
+  clearInterval(timerInterval);
+  showScreen("adminScreen");
+  updateQuestionList();
+  updateTeamDisplay();
+}
+
+// ========== تحديث عرض الفرق ==========
+function updateTeamDisplay() {
+  document.getElementById("team1Score").textContent = teamScores[1];
+  document.getElementById("team2Score").textContent = teamScores[2];
+  document.getElementById("team1Correct").textContent = teamCorrect[1];
+  document.getElementById("team2Correct").textContent = teamCorrect[2];
+  document.getElementById("team1Wrong").textContent = teamWrong[1];
+  document.getElementById("team2Wrong").textContent = teamWrong[2];
+}
+
+// ========== تبديل الشاشات ==========
+function showScreen(screenId) {
+  document
+    .querySelectorAll(".screen")
+    .forEach((s) => s.classList.remove("active"));
+  document.getElementById(screenId).classList.add("active");
+}
+
+// ========== التحميل عند فتح الصفحة ==========
+window.onload = function () {
+  loadData();
+  showScreen("adminScreen");
+};

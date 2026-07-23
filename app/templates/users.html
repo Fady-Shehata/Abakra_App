@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ t('users') }}</h1>
+<div class="grid" style="grid-template-columns: 1fr 2fr;">
+  <div class="card">
+    <h3>{{ t('new_user') }}</h3>
+    <form method="post" action="/users/create" autocomplete="off">
+      <label>{{ t('username') }}</label><input name="username" required autocomplete="off"/>
+      <label>{{ t('display_name') }}</label><input name="display_name" required/>
+      <label>{{ t('password') }}</label>
+      <input name="password" type="password" required autocomplete="new-password" data-reveal-password/>
+      <label>{{ t('role') }}</label>
+      <select name="role_id">{% for r in roles %}<option value="{{ r.id }}">{{ r.name }}</option>{% endfor %}</select>
+      <button class="btn primary mt" type="submit">{{ t('create') }}</button>
+    </form>
+  </div>
+  <div class="card">
+    <h3>{{ t('users') }} <span class="member-count-badge">{{ users|length }}</span></h3>
+    <div class="filter-bar">
+      <input type="search" data-filter="#users-table" placeholder="🔎 بحث بالاسم أو الدور..." />
+    </div>
+    <table id="users-table">
+      <thead><tr><th>{{ t('username') }}</th><th>{{ t('display_name') }}</th><th>{{ t('role') }}</th><th>{{ t('status') }}</th><th>{{ t('actions') }}</th></tr></thead>
+      <tbody>
+      {% for u in users %}
+      <tr>
+        <td>{{ u.username }}</td><td>{{ u.display_name }}</td><td>{{ u.role_name }}</td>
+        <td>{% if u.is_active %}<span class="badge on">{{ t('active') }}</span>{% else %}<span class="badge off">{{ t('inactive') }}</span>{% endif %}</td>
+        <td>
+          {% if u.id != user.id %}
+          <form method="post" action="/users/{{ u.id }}/toggle"
+                data-confirm="تبديل حالة المستخدم: {{ u.display_name }}"
+                data-confirm-kind="primary" data-confirm-ok="تبديل">
+            <button class="btn sm ghost" type="submit">
+              {% if u.is_active %}{{ t('inactive') }}{% else %}{{ t('active') }}{% endif %}
+            </button>
+          </form>
+          {% else %}<span class="muted">—</span>{% endif %}
+        </td>
+      </tr>
+      {% else %}<tr><td colspan="5" class="muted">—</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block fullpage %}
+<div class="login-wrap">
+  <div class="login-card">
+    <div class="logos">
+      <img src="/static/img/host_logo.jpg" alt="host church logo" onerror="this.onerror=null;this.src='/static/img/host_logo.svg'" />
+      <img src="/static/img/game_logo.jpg" alt="tournament logo" onerror="this.onerror=null;this.src='/static/img/game_logo.svg'" />
+    </div>
+    <h1>{{ t('app_title') }}</h1>
+    <p class="muted">{{ t('app_subtitle') }}</p>
+    {% if error %}<div class="alert error mt">{{ error }}</div>{% endif %}
+    <form method="post" action="/login">
+      <label>{{ t('username') }}</label>
+      <input name="username" required autofocus autocomplete="username" />
+      <label>{{ t('password') }}</label>
+      <input name="password" type="password" required autocomplete="current-password" data-reveal-password />
+      <button class="btn primary mt" style="width:100%" type="submit">{{ t('login_button') }}</button>
+      <p class="help">{{ t('login_hint') }}</p>
+    </form>
+    <form method="post" action="/lang" class="mt">
+      <input type="hidden" name="lang" value="{{ 'en' if lang.startswith('ar') else 'ar-EG' }}"/>
+      <button class="btn ghost sm" type="submit">{{ t('english') if lang.startswith('ar') else t('arabic') }}</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

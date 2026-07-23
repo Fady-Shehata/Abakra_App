@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ t('teams') }}</h1>
+
+{% if summary %}
+<div class="card">
+  <h3>{{ t('import_summary') }}</h3>
+  {% if summary.errors %}<div class="alert error">{{ summary.errors|join(', ') }}</div>{% endif %}
+  <table>
+    <tr><td>{{ t('rows_processed') }}</td><td>{{ summary.rows_processed }}</td></tr>
+    <tr><td>{{ t('teams_imported') }}</td><td>{{ summary.teams_imported }}</td></tr>
+    <tr><td>{{ t('duplicates_skipped') }}</td><td>{{ summary.duplicate_teams_skipped }}</td></tr>
+    <tr><td>{{ t('invalid_rows') }}</td><td>{{ summary.invalid_rows }}</td></tr>
+  </table>
+</div>
+{% endif %}
+
+<div class="grid" style="grid-template-columns: 1fr 1fr;">
+  <div class="card">
+    <h3>{{ t('new_team') }}</h3>
+    <form method="post" action="/teams/create" id="create-team-form">
+      <div class="row">
+        <div>
+          <label>{{ t('team_name') }}</label>
+          <input name="name" required />
+        </div>
+        <div>
+          <label>{{ t('team_level') }}</label>
+          <input name="level" list="team-levels" placeholder="{{ t('team_level') }}" />
+        </div>
+      </div>
+      <datalist id="team-levels">
+        <option value="ابتدائي"></option>
+        <option value="إعدادي"></option>
+        <option value="ثانوي"></option>
+        <option value="جامعي"></option>
+        <option value="خدام"></option>
+      </datalist>
+      <label>{{ t('members') }} <span class="member-count-badge" id="new-members-count">0</span></label>
+      <div class="member-add-box">
+        <input id="new-member-input" placeholder="{{ t('member_name') }} — يمكن لصق عدة أسماء" autocomplete="off" />
+        <button class="btn sm ghost" type="button" id="add-new-member">+ {{ t('add_member') }}</button>
+      </div>
+      <div class="member-feedback" id="new-members-feedback" aria-live="polite"></div>
+      <div class="members-editor mt" id="new-members-list"></div>
+      <p class="help">اكتب اسمًا واضغط Enter، أو الصق عدة أسماء مفصولة بفواصل / أسطر جديدة وسيتم إضافتها تلقائيًا.</p>
+      <label>{{ t('status') }}</label>
+      <select name="status"><option value="active">{{ t('active') }}</option><option value="inactive">{{ t('inactive') }}</option></select>
+      <button class="btn primary mt" type="submit">{{ t('create') }}</button>
+    </form>
+  </div>
+  <div class="card">
+    <h3>{{ t('import_from_excel') }}</h3>
+    <form method="post" action="/teams/import" enctype="multipart/form-data">
+      <label>{{ t('upload_workbook') }} (.xlsx)</label>
+      <div class="file-picker">
+        <input id="teams-import-file" class="file-input-hidden" type="file" name="file" accept=".xlsx,.xlsm" required />
+        <label for="teams-import-file" class="btn primary sm">اختيار ملف</label>
+        <span id="teams-import-file-name" class="file-name">لم يتم اختيار ملف</span>
+      </div>
+      <p class="help">أعمدة مدعومة: اسم الفريق / Team، المرحلة / Level، الأعضاء / Members، أو أعمدة "عضو 1"، "عضو 2".</p>
+      <button class="btn mt" type="submit">{{ t('import_from_excel') }}</button>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <h3>{{ t('teams') }} <span class="member-count-badge">{{ teams|length }}</span></h3>
+  <div class="filter-bar">
+    <input type="search" data-filter="#teams-table" placeholder="🔎 بحث بالاسم أو المرحلة..." />
+  </div>
+  <table id="teams-table">
+    <thead>
+      <tr>
+        <th>{{ t('team_name') }}</th>
+        <th>{{ t('team_level') }}</th>
+        <th>{{ t('member_count') }}</th>
+        <th>{{ t('members') }}</th>
+        <th>{{ t('status') }}</th>
+        <th>{{ t('actions') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for team in teams %}
+    <tr>
+      <td>{{ team.name }}</td>
+      <td>{% if team.level %}<span class="badge info">{{ team.level }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
+      <td>{{ team.member_count }}</td>
+      <td>
+        <button
+          type="button"
+          class="btn sm ghost open-members"
+          data-team-id="{{ team.id }}"
+          data-team-name="{{ team.name }}"
+          data-members='{{ team.members | map(attribute="name") | list | tojson }}'>
+          اعضاء الفريق
+        </button>
+      </td>
+      <td>{% if team.is_active %}<span class="badge on">{{ t('active') }}</span>{% else %}<span class="badge off">{{ t('inactive') }}</span>{% endif %}</td>
+      <td>
+        <button
+          type="button"
+          class="btn sm edit-team"
+          data-team-id="{{ team.id }}"
+          data-team-name="{{ team.name }}"
+          data-team-level="{{ team.level or '' }}"
+          data-team-active="{{ '1' if team.is_active else '0' }}">
+          {{ t('edit_team') }}
+        </button>
+        <form method="post" action="/teams/{{ team.id }}/delete" style="display:inline" class="delete-team-form" data-team-name="{{ team.name }}">
+          <button class="btn danger sm" type="submit">{{ t('delete') }}</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}<tr><td colspan="6" class="muted">—</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div id="members-modal-root"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function () {
+    const modalRoot = document.getElementById('members-modal-root');
+
+    // ---- shared helpers ----------------------------------------------------
+    const SPLIT_REGEX = /[\n\r,،;]+/;
+
+    function normalize(name) {
+      return (name || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function keyOf(name) {
+      return normalize(name).toLocaleLowerCase('ar');
+    }
+
+    function flashFeedback(el, message, kind) {
+      if (!el) return;
+      el.textContent = message || '';
+      el.className = 'member-feedback' + (kind ? ' ' + kind : '');
+      if (message && el._timer) clearTimeout(el._timer);
+      if (message) {
+        el._timer = setTimeout(() => {
+          el.textContent = '';
+          el.className = 'member-feedback';
+        }, 3000);
+      }
+    }
+
+    // Create a manager that binds an input + add-button + list into
+    // a "smart" member editor with dedupe, bulk paste, count and feedback.
+    function createMemberManager({ input, addBtn, list, countEl, feedbackEl }) {
+      function currentKeys() {
+        const set = new Set();
+        list.querySelectorAll('input[name="member_names"]').forEach((f) => {
+          const k = keyOf(f.value);
+          if (k) set.add(k);
+        });
+        return set;
+      }
+
+      function updateCount() {
+        if (!countEl) return;
+        const n = list.querySelectorAll('input[name="member_names"]').length;
+        countEl.textContent = String(n);
+      }
+
+      function buildRow(value) {
+        const row = document.createElement('div');
+        row.className = 'member-row';
+        row.innerHTML =
+          '<input name="member_names" placeholder="{{ t('member_name') }}" required />' +
+          '<div class="member-row-actions"><button class="btn sm danger" type="button">{{ t('delete') }}</button></div>';
+        const field = row.querySelector('input');
+        field.value = normalize(value);
+        field.addEventListener('input', () => {
+          // Recompute count/dedupe hint on live edits.
+          const key = keyOf(field.value);
+          let dup = false;
+          list.querySelectorAll('input[name="member_names"]').forEach((other) => {
+            if (other !== field && keyOf(other.value) === key && key) dup = true;
+          });
+          row.classList.toggle('member-row-duplicate', dup);
+        });
+        row.querySelector('button').addEventListener('click', () => {
+          row.remove();
+          updateCount();
+        });
+        return row;
+      }
+
+      function addMany(raw) {
+        const parts = String(raw || '').split(SPLIT_REGEX).map(normalize).filter(Boolean);
+        if (!parts.length) {
+          if (input) input.focus();
+          return { added: 0, duplicates: [] };
+        }
+        const keys = currentKeys();
+        const duplicates = [];
+        let added = 0;
+        parts.forEach((name) => {
+          const k = keyOf(name);
+          if (keys.has(k)) {
+            duplicates.push(name);
+            return;
+          }
+          keys.add(k);
+          list.appendChild(buildRow(name));
+          added += 1;
+        });
+        updateCount();
+        if (feedbackEl) {
+          if (added && duplicates.length) {
+            flashFeedback(feedbackEl, 'تمت إضافة ' + added + ' — تجاهل مكرر: ' + duplicates.join('، '), 'warn');
+          } else if (!added && duplicates.length) {
+            flashFeedback(feedbackEl, 'موجود مسبقاً: ' + duplicates.join('، '), 'error');
+          } else if (added) {
+            flashFeedback(feedbackEl, 'تمت إضافة ' + added + (added > 1 ? ' أعضاء' : ' عضو'), 'ok');
+          }
+        }
+        return { added, duplicates };
+      }
+
+      function addFromInput() {
+        if (!input) return;
+        const value = input.value;
+        const result = addMany(value);
+        if (result.added || !value.trim()) {
+          input.value = '';
+        }
+        input.focus();
+      }
+
+      if (addBtn) addBtn.addEventListener('click', addFromInput);
+      if (input) {
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            addFromInput();
+          }
+        });
+        input.addEventListener('paste', (e) => {
+          const text = (e.clipboardData || window.clipboardData).getData('text');
+          if (text && SPLIT_REGEX.test(text)) {
+            e.preventDefault();
+            addMany(text);
+            input.value = '';
+          }
+        });
+      }
+
+      updateCount();
+      return { addMany, addFromInput, buildRow, updateCount };
+    }
+
+    // ---- create-team form --------------------------------------------------
+    createMemberManager({
+      input: document.getElementById('new-member-input'),
+      addBtn: document.getElementById('add-new-member'),
+      list: document.getElementById('new-members-list'),
+      countEl: document.getElementById('new-members-count'),
+      feedbackEl: document.getElementById('new-members-feedback'),
+    });
+
+    // ---- import file picker ------------------------------------------------
+    const importInput = document.getElementById('teams-import-file');
+    const importFileName = document.getElementById('teams-import-file-name');
+    if (importInput && importFileName) {
+      importInput.addEventListener('change', () => {
+        importFileName.textContent = importInput.files && importInput.files.length
+          ? importInput.files[0].name
+          : 'لم يتم اختيار ملف';
+      });
+    }
+
+    // ---- modal helpers -----------------------------------------------------
+    function closeModal() {
+      modalRoot.innerHTML = '';
+    }
+
+    function openDeleteConfirm(form, teamName) {
+      modalRoot.innerHTML =
+        '<div class="modal-backdrop">' +
+          '<div class="modal" style="max-width:460px">' +
+            '<h3>{{ t('confirm') }}</h3>' +
+            '<p>سيتم حذف الفريق: <strong>' + teamName + '</strong></p>' +
+            '<p class="muted">{{ t('confirm_delete') }}</p>' +
+            '<div class="controls mt">' +
+              '<button class="btn sm" type="button" id="cancel-delete-team">{{ t('cancel') }}</button>' +
+              '<button class="btn danger sm" type="button" id="confirm-delete-team">{{ t('delete') }}</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+
+      document.getElementById('cancel-delete-team').addEventListener('click', closeModal);
+      document.getElementById('confirm-delete-team').addEventListener('click', () => {
+        form.dataset.confirmed = '1';
+        form.submit();
+      });
+    }
+
+    document.querySelectorAll('.delete-team-form').forEach((form) => {
+      form.addEventListener('submit', (e) => {
+        if (form.dataset.confirmed === '1') return;
+        e.preventDefault();
+        openDeleteConfirm(form, form.dataset.teamName || '');
+      });
+    });
+
+    // ---- edit members modal ------------------------------------------------
+    document.querySelectorAll('.open-members').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const teamId = btn.dataset.teamId;
+        const teamName = btn.dataset.teamName;
+        const members = JSON.parse(btn.dataset.members || '[]');
+
+        modalRoot.innerHTML =
+          '<div class="modal-backdrop">' +
+            '<div class="modal" style="max-width:640px">' +
+              '<h3>اعضاء الفريق: ' + teamName + ' <span class="member-count-badge" id="edit-members-count">0</span></h3>' +
+              '<form method="post" action="/teams/' + teamId + '/members" id="edit-members-form">' +
+                '<div class="member-add-box">' +
+                  '<input id="edit-member-input" placeholder="{{ t('member_name') }} — يمكن لصق عدة أسماء" autocomplete="off" />' +
+                  '<button class="btn sm ghost" type="button" id="add-edit-member">+ {{ t('add_member') }}</button>' +
+                '</div>' +
+                '<div class="member-feedback" id="edit-members-feedback" aria-live="polite"></div>' +
+                '<div class="members-editor mt" id="edit-members-editor"></div>' +
+                '<div class="controls mt">' +
+                  '<button class="btn sm" type="button" id="cancel-edit-members">{{ t('cancel') }}</button>' +
+                  '<button class="btn primary sm" type="submit">{{ t('save') }}</button>' +
+                '</div>' +
+              '</form>' +
+            '</div>' +
+          '</div>';
+
+        const manager = createMemberManager({
+          input: document.getElementById('edit-member-input'),
+          addBtn: document.getElementById('add-edit-member'),
+          list: document.getElementById('edit-members-editor'),
+          countEl: document.getElementById('edit-members-count'),
+          feedbackEl: document.getElementById('edit-members-feedback'),
+        });
+        if (members.length) manager.addMany(members.join('\n'));
+        document.getElementById('edit-member-input').focus();
+
+        document.getElementById('cancel-edit-members').addEventListener('click', closeModal);
+      });
+    });
+
+    // ---- edit team (name + level + status) modal --------------------------
+    function escAttr(v) {
+      return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    document.querySelectorAll('.edit-team').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const teamId   = btn.dataset.teamId;
+        const teamName = btn.dataset.teamName || '';
+        const teamLvl  = btn.dataset.teamLevel || '';
+        const active   = btn.dataset.teamActive === '1';
+
+        modalRoot.innerHTML =
+          '<div class="modal-backdrop">' +
+            '<div class="modal" style="max-width:520px">' +
+              '<h3>{{ t('edit_team') }}: ' + escAttr(teamName) + '</h3>' +
+              '<form method="post" action="/teams/' + teamId + '/update">' +
+                '<label>{{ t('team_name') }}</label>' +
+                '<input name="name" required value="' + escAttr(teamName) + '" />' +
+                '<label>{{ t('team_level') }}</label>' +
+                '<input name="level" list="team-levels" value="' + escAttr(teamLvl) + '" placeholder="{{ t('team_level') }}" />' +
+                '<label>{{ t('status') }}</label>' +
+                '<select name="status">' +
+                  '<option value="active"'   + (active  ? ' selected' : '') + '>{{ t('active') }}</option>' +
+                  '<option value="inactive"' + (!active ? ' selected' : '') + '>{{ t('inactive') }}</option>' +
+                '</select>' +
+                '<div class="controls mt">' +
+                  '<button class="btn sm" type="button" id="cancel-edit-team">{{ t('cancel') }}</button>' +
+                  '<button class="btn primary sm" type="submit">{{ t('save') }}</button>' +
+                '</div>' +
+              '</form>' +
+            '</div>' +
+          '</div>';
+
+        document.getElementById('cancel-edit-team').addEventListener('click', closeModal);
+      });
+    });
+
+    modalRoot.addEventListener('click', (e) => {
+      if (e.target.classList.contains('modal-backdrop')) closeModal();
+    });
+  })();
+</script>
+{% endblock %}
