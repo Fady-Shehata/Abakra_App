@@ -29,6 +29,7 @@ tests/_testdata/
 
 # Generated exports and scratch output
 output/temp/
+~$*.xlsx
 pytest_*.txt
 teams_patch_tests.txt
 boot.txt
