@@ -34,10 +34,24 @@ jobs:
   deploy:
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name != 'pull_request'
 
     steps:
+      - name: Check deploy secrets
+        id: deploy_secrets
+        env:
+          DO_SSH_KEY: ${{ secrets.DO_SSH_KEY }}
+          DO_HOST: ${{ secrets.DO_HOST }}
+        run: |
+          if [ -z "$DO_SSH_KEY" ] || [ -z "$DO_HOST" ]; then
+            echo "Deployment skipped because DO_SSH_KEY or DO_HOST is not configured."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Configure SSH
+        if: steps.deploy_secrets.outputs.skip != 'true'
         env:
           DO_SSH_KEY: ${{ secrets.DO_SSH_KEY }}
           DO_HOST: ${{ secrets.DO_HOST }}
@@ -51,6 +65,7 @@ jobs:
           ssh-keyscan -H "$DO_HOST" >> ~/.ssh/known_hosts
 
       - name: Deploy on Droplet
+        if: steps.deploy_secrets.outputs.skip != 'true'
         env:
           DO_HOST: ${{ secrets.DO_HOST }}
           DO_USER: ${{ secrets.DO_USER }}
