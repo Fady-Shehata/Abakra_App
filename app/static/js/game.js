@@ -12,7 +12,8 @@
   const REBOUND_TIMER_SECONDS = 5;
   const TIMER_SOUND_URL = '/static/audio/timer-effect.mp3';
   const SPIN_SOUND_URL = '/static/audio/spinning-effect.mp3';
-  const SPIN_DURATION_MS = 2000;
+  const SPIN_DURATION_MS = 3000;
+  const SPIN_RESULT_POPUP_MS = 5000;
   const timerAudio = makeAudio(TIMER_SOUND_URL, true);
   const spinAudio = makeAudio(SPIN_SOUND_URL, false);
   // Whether the current question's answer text is visible to the host.
@@ -339,18 +340,39 @@
     const spin = state.last_spin;
     setTimeout(() => stopSound(spinAudio), SPIN_DURATION_MS);
     setTimeout(() => {
-      if (spin && spin.result === 'الجوكر') {
-        openJokerDialog(team);
-      } else if (spin) {
-        const cat = state.remaining.find(c => c.name === spin.result);
-        if (cat && cat.remaining > 0) {
-          call('/select', { section: 4, category_id: cat.id, team });
-        } else {
-          render();
-          window.SmartAlert(L['not_enough_questions'] + ': ' + spin.result);
-        }
-      } else render();
+      showSpinResultPopup(spin, () => {
+        if (spin && spin.result === 'الجوكر') {
+          openJokerDialog(team);
+        } else if (spin) {
+          const cat = state.remaining.find(c => c.name === spin.result);
+          if (cat && cat.remaining > 0) {
+            call('/select', { section: 4, category_id: cat.id, team });
+          } else {
+            render();
+            window.SmartAlert(L['not_enough_questions'] + ': ' + spin.result);
+          }
+        } else render();
+      });
     }, SPIN_DURATION_MS);
+  }
+
+  function showSpinResultPopup(spin, afterClose) {
+    if (!spin) {
+      afterClose();
+      return;
+    }
+    const root = $('modal-root');
+    const teamName = spin.team === 'a' ? state.team_a.name : state.team_b.name;
+    root.innerHTML = `<div class="modal-backdrop spin-result-backdrop">
+      <div class="spin-result-modal">
+        <div class="spin-result-label">${escapeHtml(teamName)}</div>
+        <div class="spin-result-value">${escapeHtml(spin.result)}</div>
+      </div>
+    </div>`;
+    setTimeout(() => {
+      root.innerHTML = '';
+      afterClose();
+    }, SPIN_RESULT_POPUP_MS);
   }
 
   function openJokerDialog(team) {
