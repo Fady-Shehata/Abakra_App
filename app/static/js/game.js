@@ -10,6 +10,11 @@
   let timer = { remaining: 30, duration: 30, running: false, handle: null, key: null };
   const NORMAL_TIMER_SECONDS = 30;
   const REBOUND_TIMER_SECONDS = 5;
+  const TIMER_SOUND_URL = '/static/audio/timer-effect.mp3';
+  const SPIN_SOUND_URL = '/static/audio/spinning-effect.mp3';
+  const SPIN_DURATION_MS = 2000;
+  const timerAudio = makeAudio(TIMER_SOUND_URL, true);
+  const spinAudio = makeAudio(SPIN_SOUND_URL, false);
   // Whether the current question's answer text is visible to the host.
   // Auto-revealed when the timer reaches 0 or when the host clicks the
   // "Show Answer" button. Reset each time a new question is revealed.
@@ -144,19 +149,6 @@
       }
     });
     el.appendChild(wrap);
-
-    // buzzer for sections 2 and 3
-    if (sec === 2 || sec === 3) {
-      const bz = document.createElement('div');
-      bz.className = 'controls mt';
-      const locked = state.buzzer && state.buzzer.locked;
-      bz.appendChild(btn(L['buzz_a'] + (locked && state.buzzer.team === 'a' ? ' ✓' : ''),
-        state.buzzer.team === 'a' ? 'primary' : '', () => call('/buzz', { team: 'a' }), locked));
-      bz.appendChild(btn(L['buzz_b'] + (locked && state.buzzer.team === 'b' ? ' ✓' : ''),
-        state.buzzer.team === 'b' ? 'primary' : '', () => call('/buzz', { team: 'b' }), locked));
-      bz.appendChild(btn(L['reset_buzzer'], 'ghost', () => call('/reset-buzzer', {})));
-      el.appendChild(bz);
-    }
 
     el.appendChild(btn(L['finish_section'], 'ghost mt', () => call('/finish-section', { section: sec })));
   }
@@ -340,10 +332,12 @@
   async function doSpin(team) {
     const wheelEl = document.querySelector('.wheel');
     if (wheelEl) wheelEl.style.transform = `rotate(${1440 + Math.random() * 360}deg)`;
+    playSound(spinAudio, true);
     const r = await apiPost(base + '/spin', { team });
-    if (!r.ok) { flash(r.data.error); return; }
+    if (!r.ok) { stopSound(spinAudio); flash(r.data.error); return; }
     state = r.data;
     const spin = state.last_spin;
+    setTimeout(() => stopSound(spinAudio), SPIN_DURATION_MS);
     setTimeout(() => {
       if (spin && spin.result === 'الجوكر') {
         openJokerDialog(team);
@@ -356,7 +350,7 @@
           window.SmartAlert(L['not_enough_questions'] + ': ' + spin.result);
         }
       } else render();
-    }, 900);
+    }, SPIN_DURATION_MS);
   }
 
   function openJokerDialog(team) {
@@ -427,6 +421,7 @@
     if (timer.running) return;
     if (timer.remaining <= 0) timer.remaining = timer.duration;
     timer.running = true;
+    playSound(timerAudio, true);
     setupTimerButtons();
     timer.handle = setInterval(() => {
       timer.remaining = Math.max(0, timer.remaining - 1);
@@ -446,6 +441,7 @@
     timer.running = false;
     if (timer.handle) clearInterval(timer.handle);
     timer.handle = null;
+    stopSound(timerAudio);
     if ($('t-start')) {
       const startLabel = timer.remaining < timer.duration ? L['resume_timer'] : L['start_timer'];
       $('t-start').textContent = startLabel;
@@ -472,6 +468,27 @@
       $('timer-box').classList.toggle('is-low', timer.remaining <= Math.ceil(timer.duration / 3));
       $('timer-box').classList.toggle('is-empty', timer.remaining <= 0);
     }
+  }
+
+  function makeAudio(src, loop) {
+    const audio = new Audio(src);
+    audio.loop = loop;
+    audio.preload = 'auto';
+    return audio;
+  }
+
+  function playSound(audio, restart) {
+    if (!audio) return;
+    if (restart) {
+      try { audio.currentTime = 0; } catch (_) {}
+    }
+    audio.play().catch(() => {});
+  }
+
+  function stopSound(audio) {
+    if (!audio) return;
+    audio.pause();
+    try { audio.currentTime = 0; } catch (_) {}
   }
 
   // ---------- match controls ----------
