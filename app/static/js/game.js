@@ -7,7 +7,9 @@
   const IS_ADMIN = root.dataset.isAdmin === '1';
   const base = `/api/game/${MID}`;
   let state = null;
-  let timer = { remaining: 30, running: false, handle: null };
+  let timer = { remaining: 30, duration: 30, running: false, handle: null, key: null };
+  const NORMAL_TIMER_SECONDS = 30;
+  const REBOUND_TIMER_SECONDS = 5;
   // Whether the current question's answer text is visible to the host.
   // Auto-revealed when the timer reaches 0 or when the host clicks the
   // "Show Answer" button. Reset each time a new question is revealed.
@@ -173,11 +175,17 @@
     const ctrl = $('q-controls');
     ctrl.innerHTML = '';
     const cur = state.current;
-    // timer visibility (section 1)
-    $('timer-box').classList.toggle('hidden', state.current_section !== 1);
-    setupTimerButtons();
+    const showTimer = Boolean(cur && cur.phase !== 'done');
+    $('timer-box').classList.toggle('hidden', !showTimer);
+    $('timer-controls').classList.toggle('hidden', !showTimer);
 
-    if (!cur) { qc.innerHTML = `<p class="muted">—</p>`; return; }
+    if (!cur) {
+      stopTimer();
+      timer.key = null;
+      qc.innerHTML = `<div class="question-panel is-empty"><p class="muted">-</p></div>`;
+      updateTimerDisplay();
+      return;
+    }
     const c = cur.content || {};
     // Reset the local "show answer" gate whenever we move to a new question
     // or the question is not yet revealed.
@@ -188,20 +196,13 @@
     // (e.g. rebound_open, done). In those phases the answer is safe to show.
     const answerUnlocked = showAnswer || (cur.phase && cur.phase !== 'selected' && cur.phase !== 'revealed');
     lastQKey = qKey;
-    let html = `<div class="muted">${cur.category_name} · ${c.code || ''} ${cur.team ? '· ' + (cur.team === 'a' ? state.team_a.name : state.team_b.name) : ''}</div>`;
-    if (cur.phase === 'selected') {
-      html += `<p class="qtext mt">${L['reveal']}؟</p>`;
+    if (showTimer) {
+      ensureTimerForCurrentQuestion(cur, c);
+      setupTimerButtons();
     } else {
-      html += `<p class="qtext mt">${escapeHtml(c.text || '')}</p>`;
-      if (c.choices && c.choices.length) {
-        html += '<div class="choices">' + c.choices.map(ch => `<div class="choice">${escapeHtml(ch)}</div>`).join('') + '</div>';
-      }
-      if (answerUnlocked) {
-        if (c.answer) html += `<p class="mt" style="color:var(--accent-light)"><strong>${L['correct_answer']}:</strong> ${escapeHtml(c.answer)}</p>`;
-        if (c.explanation) html += `<p class="muted">${L['explanation']}: ${escapeHtml(c.explanation)}</p>`;
-      }
+      stopTimer();
     }
-    qc.innerHTML = html;
+    qc.innerHTML = renderQuestionPanel(cur, c, answerUnlocked);
 
     const sec = cur.section;
     if (cur.phase === 'selected') {
@@ -249,6 +250,50 @@
       ctrl.appendChild(btn(L['rebound_wrong'] + ' (0)', 'danger', () => call('/mark', { action: 'rebound_wrong' })));
       return;
     }
+  }
+
+  function renderQuestionPanel(cur, c, answerUnlocked) {
+    const kind = questionKind(c);
+    const teamName = cur.team ? (cur.team === 'a' ? state.team_a.name : state.team_b.name) : '';
+    const meta = [cur.category_name, c.code, teamName].filter(Boolean).map(escapeHtml).join(' · ');
+    const panelClasses = ['question-panel', `question-kind-${kind}`];
+    if (cur.phase === 'selected') panelClasses.push('is-waiting');
+    if (cur.phase === 'rebound_open') panelClasses.push('is-rebound');
+
+    let html = `<div class="${panelClasses.join(' ')}">`;
+    if (meta) html += `<div class="question-meta">${meta}</div>`;
+    const questionText = cur.phase === 'selected' ? `${L['reveal']}?` : (c.text || '');
+    html += `<div class="question-banner"><p class="qtext">${escapeHtml(questionText)}</p></div>`;
+
+    if (cur.phase !== 'selected') {
+      const displayedChoices = choicesForKind(c, kind);
+      if (displayedChoices.length) {
+        html += `<div class="question-choices choice-count-${displayedChoices.length}">`;
+        html += displayedChoices.map(ch => `<div class="question-choice">${escapeHtml(ch)}</div>`).join('');
+        html += '</div>';
+      }
+      if (answerUnlocked) {
+        html += '<div class="answer-panel">';
+        if (c.answer) html += `<p><strong>${L['correct_answer']}:</strong> ${escapeHtml(c.answer)}</p>`;
+        if (c.explanation) html += `<p class="muted">${L['explanation']}: ${escapeHtml(c.explanation)}</p>`;
+        html += '</div>';
+      }
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function questionKind(c) {
+    if (c.qtype === 'mc') return 'mc';
+    if (c.qtype === 'tf') return 'tf';
+    return 'open';
+  }
+
+  function choicesForKind(c, kind) {
+    const choices = c.choices || [];
+    if (kind === 'mc') return choices.slice(0, 4);
+    if (kind === 'tf') return choices.slice(0, 2);
+    return [];
   }
 
   // ---------- wheel ----------
@@ -344,32 +389,89 @@
   }
 
   // ---------- timer (client, host-controlled) ----------
+  function timerDurationFor(cur) {
+    return cur && cur.phase === 'rebound_open' ? REBOUND_TIMER_SECONDS : NORMAL_TIMER_SECONDS;
+  }
+
+  function timerKeyFor(cur, c) {
+    if (!cur) return null;
+    return [cur.section || '', cur.question_id || c.id || c.code || '', cur.phase || ''].join(':');
+  }
+
+  function ensureTimerForCurrentQuestion(cur, c) {
+    const nextKey = timerKeyFor(cur, c);
+    const nextDuration = timerDurationFor(cur);
+    if (timer.key !== nextKey || timer.duration !== nextDuration) {
+      stopTimer();
+      timer.key = nextKey;
+      timer.duration = nextDuration;
+      timer.remaining = nextDuration;
+    }
+    updateTimerDisplay();
+  }
+
   function setupTimerButtons() {
-    $('t-start').textContent = timer.running ? L['pause_timer'] : L['start_timer'];
+    const startLabel = timer.remaining < timer.duration ? L['resume_timer'] : L['start_timer'];
+    $('t-start').textContent = startLabel;
     $('t-reset').textContent = L['reset_timer'];
     $('t-pause').textContent = L['pause_timer'];
-    $('t-start').onclick = toggleTimer;
+    $('t-start').disabled = timer.running;
+    $('t-pause').disabled = !timer.running;
+    $('t-start').onclick = startTimer;
     $('t-pause').onclick = () => { stopTimer(); };
-    $('t-reset').onclick = () => { stopTimer(); timer.remaining = 30; $('timer-display').textContent = 30; };
-    $('timer-display').textContent = timer.remaining;
+    $('t-reset').onclick = resetTimer;
+    updateTimerDisplay();
   }
-  function toggleTimer() {
-    if (timer.running) stopTimer(); else startTimer();
-  }
+
   function startTimer() {
-    timer.running = true; $('t-start').textContent = L['pause_timer'];
+    if (timer.running) return;
+    if (timer.remaining <= 0) timer.remaining = timer.duration;
+    timer.running = true;
+    setupTimerButtons();
     timer.handle = setInterval(() => {
-      timer.remaining--; $('timer-display').textContent = timer.remaining;
+      timer.remaining = Math.max(0, timer.remaining - 1);
+      updateTimerDisplay();
       if (timer.remaining <= 0) {
         stopTimer();
         // Timer expired: unlock the answer for the host automatically.
-        if (!showAnswer) { showAnswer = true; render(); }
+        if (state.current && state.current.phase !== 'selected' && !showAnswer) {
+          showAnswer = true;
+          render();
+        }
       }
     }, 1000);
   }
+
   function stopTimer() {
-    timer.running = false; if (timer.handle) clearInterval(timer.handle);
-    if ($('t-start')) $('t-start').textContent = L['start_timer'];
+    timer.running = false;
+    if (timer.handle) clearInterval(timer.handle);
+    timer.handle = null;
+    if ($('t-start')) {
+      const startLabel = timer.remaining < timer.duration ? L['resume_timer'] : L['start_timer'];
+      $('t-start').textContent = startLabel;
+      $('t-start').disabled = false;
+    }
+    if ($('t-pause')) $('t-pause').disabled = true;
+    updateTimerDisplay();
+  }
+
+  function resetTimer() {
+    stopTimer();
+    timer.remaining = timer.duration;
+    updateTimerDisplay();
+    setupTimerButtons();
+  }
+
+  function updateTimerDisplay() {
+    if (!$('timer-display')) return;
+    $('timer-display').textContent = timer.remaining;
+    const ratio = timer.duration > 0 ? timer.remaining / timer.duration : 0;
+    const angle = Math.max(0, Math.min(360, ratio * 360));
+    if ($('timer-box')) {
+      $('timer-box').style.setProperty('--timer-angle', `${angle}deg`);
+      $('timer-box').classList.toggle('is-low', timer.remaining <= Math.ceil(timer.duration / 3));
+      $('timer-box').classList.toggle('is-empty', timer.remaining <= 0);
+    }
   }
 
   // ---------- match controls ----------

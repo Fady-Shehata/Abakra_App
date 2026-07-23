@@ -55,16 +55,22 @@
     <div id="section-controls"></div>
   </div>
 
-  <div class="card" id="qcard-wrap">
-    <div id="timer-box" class="hidden">
-      <div class="timer-display" id="timer-display">30</div>
-      <div class="controls" style="justify-content:center">
+  <div class="card game-question-card" id="qcard-wrap">
+    <div class="question-visual-shell">
+      <div id="timer-box" class="question-timer hidden" style="--timer-angle:360deg">
+        <div class="timer-rail" aria-hidden="true"></div>
+        <div class="timer-orb">
+          <div class="timer-display" id="timer-display">30</div>
+          <div class="timer-unit">sec</div>
+        </div>
+      </div>
+      <div class="controls timer-controls" id="timer-controls">
         <button class="btn sm" id="t-start"></button>
         <button class="btn sm" id="t-pause"></button>
         <button class="btn sm" id="t-reset"></button>
       </div>
-    </div>
     <div class="qcard" id="qcard"><p class="muted" id="q-empty">—</p></div>
+    </div>
     <div class="controls" id="q-controls"></div>
   </div>
 
