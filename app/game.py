@@ -375,13 +375,24 @@ def skip_question(db: Session, session: models.GameSession, host_id: Optional[in
     cur = state.get("current")
     if not cur:
         raise GameError("invalid_transition")
+    section = cur["section"]
+    category_id = cur["category_id"]
+    team = cur.get("team")
+    via_joker = bool(cur.get("via_joker"))
     usage = db.get(models.QuestionUsage, cur["usage_id"])
     if usage:
         usage.state = "skipped"
-    _finish_current(db, session, state, "skipped", None, 0)
+        usage.answer_result = "skipped"
+        usage.points_awarded = 0
+    state["current"] = None
     reset_buzzer_inline(state)
     save_state(db, session, state)
-    return state
+    try:
+        return select_question(db, session, section, category_id, team, host_id, via_joker=via_joker)
+    except GameError as e:
+        if e.key == "not_enough_questions":
+            return load_state(session)
+        raise
 
 
 def invalidate_question(db: Session, session: models.GameSession, reason: str, host_id: Optional[int]) -> dict:

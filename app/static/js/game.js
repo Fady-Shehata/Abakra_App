@@ -61,6 +61,7 @@
     // the match — opening the page is non-destructive.
     const notStarted = (state.status === 'scheduled' || state.status === 'ready');
     const completed = state.status === 'completed';
+    $('scoreboard-card').classList.toggle('hidden', !completed);
     $('ready-banner').classList.toggle('hidden', !notStarted);
     $('finished-banner').classList.toggle('hidden', !completed);
     if ($('finished-score')) {
@@ -68,6 +69,7 @@
     }
     $('section-controls-card').classList.toggle('hidden', notStarted || completed);
     $('qcard-wrap').classList.toggle('hidden', notStarted || completed);
+    $('match-summary-grid').classList.toggle('hidden', !completed);
     document.getElementById('section-tabs').classList.toggle('hidden', notStarted || completed);
     // Pause / return-to-ready button visibility.
     $('btn-pause-match').classList.toggle('hidden', notStarted || completed);

@@ -96,6 +96,39 @@ def test_father_asks_awards_10(db_session):
     assert m2.score_b == 10
 
 
+def test_skip_replaces_question_without_revealing_or_advancing(db_session):
+    _clear_categories(db_session)
+    cat = make_category(db_session, "كتاب لاهوت", True, True)
+    src = make_source(db_session, "skip.xlsx")
+    q1 = make_question(db_session, cat.id, src.id, "Q_skip_1", "h_skip_1")
+    q2 = make_question(db_session, cat.id, src.id, "Q_skip_2", "h_skip_2")
+    m = make_match_with_session(db_session)
+
+    ge.start_section(db_session, m.session, 2)
+    ge.select_question(db_session, m.session, 2, cat.id, None, None)
+    first = ge.load_state(m.session)["current"]["question_id"]
+
+    st = ge.skip_question(db_session, m.session, None)
+    replacement = st["current"]
+    usage = db_session.get(models.QuestionUsage, replacement["usage_id"])
+    skipped_usage = (
+        db_session.query(models.QuestionUsage)
+        .filter(
+            models.QuestionUsage.question_id == first,
+            models.QuestionUsage.session_id == m.session.id,
+        )
+        .one()
+    )
+
+    assert first in {q1.id, q2.id}
+    assert replacement["question_id"] in {q1.id, q2.id} - {first}
+    assert replacement["phase"] == "selected"
+    assert replacement["category_id"] == cat.id
+    assert usage.state == "selected"
+    assert skipped_usage.state == "skipped"
+    assert st["sections"]["2"]["index"] == 0
+
+
 def test_section1_mental_ability_exception(db_session):
     _clear_categories(db_session)
     cat1 = make_category(db_session, "كتاب لاهوت", True, True)

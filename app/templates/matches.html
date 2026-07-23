@@ -173,12 +173,20 @@
           <div style="flex:0"><button class="btn sm">{{ t('assign_host') }}</button></div>
         </form>
       </td>
-      <td><span class="badge info">{{ t('match_status_' + m.status) }}</span> {{ m.score_a }}-{{ m.score_b }}</td>
+      <td>
+        <span class="badge info">{{ t('match_status_' + m.status) }}</span>
+        {% if m.status == 'completed' %} {{ m.score_a }}-{{ m.score_b }}{% endif %}
+      </td>
       <td>
         <div style="display:inline-flex; align-items:center; gap:6px; vertical-align:middle">
           <a class="btn sm ghost" href="/game/{{ m.id }}">{{ t('match') }}</a>
           {% if m.status == 'completed' %}
           <a class="btn sm primary" href="/matches/{{ m.id }}/score">Score Board</a>
+          <form method="post" action="/matches/{{ m.id }}/restart-ready"
+                data-confirm="Restart this completed match and make it ready (جاهزة)? Existing score events for this match will be cleared."
+                style="display:contents">
+            <button class="btn sm ghost">Make Ready</button>
+          </form>
           {% endif %}
           {% if m.status in ('scheduled', 'ready') %}
           <button type="button" class="btn sm ghost icon-btn" data-edit-open="{{ m.id }}" title="{{ t('edit_match') }}">✏️</button>

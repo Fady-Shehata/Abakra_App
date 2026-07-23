@@ -725,6 +725,39 @@ def match_delete(mid: int, db: Session = Depends(get_db),
     return RedirectResponse("/matches", 302)
 
 
+@router.post("/matches/{mid}/restart-ready")
+def match_restart_ready(mid: int, db: Session = Depends(get_db),
+                        user: models.User = Depends(require_admin)):
+    m = db.get(models.Match, mid)
+    if not m:
+        return RedirectResponse("/matches", 302)
+
+    if m.session:
+        db.query(models.QuestionUsage).filter_by(session_id=m.session.id).delete(synchronize_session=False)
+        m.session.current_section = 0
+        m.session.state_json = None
+        m.session.status = "ready"
+    else:
+        m.session = models.GameSession(status="ready")
+
+    db.query(models.ScoreEvent).filter_by(match_id=m.id).delete(synchronize_session=False)
+    db.query(models.MatchResult).filter_by(match_id=m.id).delete(synchronize_session=False)
+
+    m.status = "ready"
+    m.score_a = 0
+    m.score_b = 0
+    m.winner_team_id = None
+    m.is_draw = False
+    m.points_a = 0
+    m.points_b = 0
+    m.started_at = None
+    m.completed_at = None
+    db.add(m)
+    db.commit()
+    security.audit(db, user.id, "restart_match_ready", f"m={mid}")
+    return RedirectResponse("/matches", 302)
+
+
 @router.post("/matches/{mid}/edit")
 def match_edit(mid: int,
                team_a_id: int = Form(...),
@@ -859,6 +892,8 @@ def match_score_page(mid: int, request: Request, db: Session = Depends(get_db),
         return RedirectResponse("/", 302)
     if not security.can_access_match(user, m):
         return HTMLResponse("<h1>403</h1>", status_code=403)
+    if m.status != "completed":
+        return RedirectResponse(f"/game/{m.id}", 302)
 
     events = (
         db.query(models.ScoreEvent)
@@ -866,7 +901,26 @@ def match_score_page(mid: int, request: Request, db: Session = Depends(get_db),
         .order_by(models.ScoreEvent.created_at.asc(), models.ScoreEvent.id.asc())
         .all()
     )
+    section_order = sorted(scoring.SECTION_NAMES)
     section_totals: dict[int, dict] = {}
+    team_breakdowns = {
+        "a": {
+            "name": m.team_a.name if m.team_a else "—",
+            "score": m.score_a,
+            "sections": {
+                sec: {"section": sec, "name": scoring.SECTION_NAMES[sec], "total": 0, "events": []}
+                for sec in section_order
+            },
+        },
+        "b": {
+            "name": m.team_b.name if m.team_b else "—",
+            "score": m.score_b,
+            "sections": {
+                sec: {"section": sec, "name": scoring.SECTION_NAMES[sec], "total": 0, "events": []}
+                for sec in section_order
+            },
+        },
+    }
     rows = []
     for e in events:
         q = db.get(models.Question, e.question_id) if e.question_id else None
@@ -882,17 +936,21 @@ def match_score_page(mid: int, request: Request, db: Session = Depends(get_db),
                 "name": scoring.SECTION_NAMES.get(sec, "—"),
                 "a": 0,
                 "b": 0,
-            }
+        }
         if team_side in ("a", "b"):
             section_totals[sec][team_side] += e.delta
-        rows.append({
+        row = {
             "event": e,
             "team_side": team_side,
             "team_name": team_name,
             "question_code": q.question_code if q else "—",
             "category": cat.name if cat else "—",
             "section_name": scoring.SECTION_NAMES.get(sec, "—"),
-        })
+        }
+        rows.append(row)
+        if team_side in ("a", "b") and sec in team_breakdowns[team_side]["sections"]:
+            team_breakdowns[team_side]["sections"][sec]["total"] += e.delta
+            team_breakdowns[team_side]["sections"][sec]["events"].append(row)
 
     winner_name = ""
     if m.winner_team_id == m.team_a_id and m.team_a:
@@ -904,6 +962,8 @@ def match_score_page(mid: int, request: Request, db: Session = Depends(get_db),
         request, db, "match_score.html",
         user=user, match=m, rows=rows,
         section_totals=sorted(section_totals.values(), key=lambda x: x["section"]),
+        team_breakdowns=team_breakdowns,
+        section_order=section_order,
         winner_name=winner_name,
     )
 
@@ -979,7 +1039,9 @@ def settings_language(lang: str = Form(...), db: Session = Depends(get_db),
 def reports_page(request: Request, db: Session = Depends(get_db),
                  user: models.User = Depends(require_admin)):
     tournaments = db.query(models.Tournament).all()
-    score_matches = db.query(models.Match).order_by(
+    score_matches = db.query(models.Match).filter(
+        models.Match.status == "completed"
+    ).order_by(
         models.Match.completed_at.is_(None),
         models.Match.completed_at.desc(),
         models.Match.created_at.desc(),

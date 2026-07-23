@@ -181,8 +181,8 @@
       <div class="muted right">{{ rnd.round.name }}</div>
       {% for s in rnd.slots %}
       <div class="slot">
-        <div class="team {{ 'win' if s.match and s.match.winner_team_id == s.slot.team_a_id else '' }}">{{ s.team_a.name if s.team_a else '—' }} {% if s.match %}<span class="muted">({{ s.match.score_a }})</span>{% endif %}</div>
-        <div class="team {{ 'win' if s.match and s.match.winner_team_id == s.slot.team_b_id else '' }}">{{ s.team_b.name if s.team_b else '—' }} {% if s.match %}<span class="muted">({{ s.match.score_b }})</span>{% endif %}</div>
+        <div class="team {{ 'win' if s.match and s.match.winner_team_id == s.slot.team_a_id else '' }}">{{ s.team_a.name if s.team_a else '—' }} {% if s.match and s.match.status == 'completed' %}<span class="muted">({{ s.match.score_a }})</span>{% endif %}</div>
+        <div class="team {{ 'win' if s.match and s.match.winner_team_id == s.slot.team_b_id else '' }}">{{ s.team_b.name if s.team_b else '—' }} {% if s.match and s.match.status == 'completed' %}<span class="muted">({{ s.match.score_b }})</span>{% endif %}</div>
         {% if s.match %}<div class="muted" style="font-size:.75rem">{{ t('match_status_' + s.match.status) }} · {{ s.match.host.display_name if s.match.host else '—' }}</div>{% endif %}
       </div>
       {% endfor %}
@@ -205,7 +205,7 @@
       <td>{{ m.round_name or m.stage }}</td>
       <td>{{ m.team_a.name if m.team_a else '—' }}</td>
       <td>{{ m.team_b.name if m.team_b else '—' }}</td>
-      <td>{{ m.score_a }} - {{ m.score_b }}</td>
+      <td>{% if m.status == 'completed' %}{{ m.score_a }} - {{ m.score_b }}{% else %}<span class="muted">—</span>{% endif %}</td>
       <td><span class="badge info">{{ t('match_status_' + m.status) }}</span></td>
     </tr>
     {% else %}<tr><td colspan="5" class="muted">—</td></tr>{% endfor %}

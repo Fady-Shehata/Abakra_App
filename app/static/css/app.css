@@ -396,6 +396,37 @@ input[type="file"]::file-selector-button:hover {
   justify-content: center;
 }
 
+.score-breakdown {
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  background: rgba(30, 51, 80, .45);
+}
+
+.score-breakdown-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.score-breakdown.a .score-breakdown-head {
+  background: rgba(43,159,214,.14);
+}
+
+.score-breakdown.b .score-breakdown-head {
+  background: rgba(232,130,30,.14);
+}
+
+.score-breakdown-head span {
+  color: var(--accent-light);
+  font-size: 2rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
 /* Wheel */
 .wheel-wrap { text-align: center; }
 .wheel { width: 260px; height: 260px; border-radius: 50%; margin: 10px auto; position: relative; transition: transform 3s cubic-bezier(.17,.67,.32,1.3); border: 6px solid var(--accent); }

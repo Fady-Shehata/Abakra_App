@@ -25,28 +25,44 @@
 
 <div class="card">
   <h3>Scoring Module</h3>
-  {% if section_totals %}
-  <table>
-    <thead>
-      <tr>
-        <th>{{ t('section') }}</th>
-        <th>{{ match.team_a.name if match.team_a else t('team_a') }}</th>
-        <th>{{ match.team_b.name if match.team_b else t('team_b') }}</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for s in section_totals %}
-      <tr>
-        <td>{{ s.name }}</td>
-        <td>{{ s.a }}</td>
-        <td>{{ s.b }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p class="muted">—</p>
-  {% endif %}
+  <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
+    {% for side in ['a', 'b'] %}
+    {% set tb = team_breakdowns[side] %}
+    <div class="score-breakdown {{ side }}">
+      <div class="score-breakdown-head">
+        <strong>{{ tb.name }}</strong>
+        <span>{{ tb.score }}</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>{{ t('section') }}</th>
+            <th>{{ t('score') }}</th>
+            <th>{{ t('details') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sec in section_order %}
+          {% set section = tb.sections[sec] %}
+          <tr>
+            <td>{{ section.name }}</td>
+            <td>{{ section.total }}</td>
+            <td>
+              {% if section.events %}
+                {% for row in section.events %}
+                  <div class="muted">{{ row.category }} · {{ row.question_code }} · {{ '+' if row.event.delta > 0 else '' }}{{ row.event.delta }}</div>
+                {% endfor %}
+              {% else %}
+                <span class="muted">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endfor %}
+  </div>
 </div>
 
 <div class="card">
