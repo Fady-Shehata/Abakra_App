@@ -316,13 +316,43 @@ def report_standings_xlsx(tid: int, db: Session = Depends(get_db),
                           user: models.User = Depends(require_admin)):
     from . import standings as st
     t = db.get(models.Tournament, tid)
-    rows = [["group", "rank", "team", "P", "W", "D", "L", "Pts", "GF", "GA", "GD"]]
-    if t:
-        for g in t.groups:
+    wb = openpyxl.Workbook()
+    header = ["rank", "team", "P", "W", "D", "L", "Pts", "GF", "GA", "GD"]
+
+    def safe_sheet_name(name: str, fallback: str) -> str:
+        cleaned = "".join("_" if ch in r'[]:*?/\\' else ch for ch in (name or fallback)).strip()
+        return (cleaned or fallback)[:31]
+
+    if t and t.groups:
+        wb.remove(wb.active)
+        used_names: set[str] = set()
+        for idx, g in enumerate(t.groups, start=1):
+            base_name = safe_sheet_name(g.name, f"group_{idx}")
+            sheet_name = base_name
+            suffix = 2
+            while sheet_name in used_names:
+                tail = f"_{suffix}"
+                sheet_name = f"{base_name[:31 - len(tail)]}{tail}"
+                suffix += 1
+            used_names.add(sheet_name)
+            ws = wb.create_sheet(sheet_name)
+            ws.append(header)
             for r in st.compute_group_standings(db, t, g):
-                rows.append([g.name, r["rank"], r["team_name"], r["played"], r["won"],
-                             r["drawn"], r["lost"], r["points"], r["gf"], r["ga"], r["gd"]])
-    return _xlsx_response(rows, f"standings_{tid}.xlsx")
+                ws.append([r["rank"], r["team_name"], r["played"], r["won"],
+                           r["drawn"], r["lost"], r["points"], r["gf"], r["ga"], r["gd"]])
+    else:
+        ws = wb.active
+        ws.title = "standings"
+        ws.append(header)
+
+    stream = io.BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+    return StreamingResponse(
+        stream,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=standings_{tid}.xlsx"},
+    )
 
 
 @router.get("/reports/results/{tid}.xlsx")

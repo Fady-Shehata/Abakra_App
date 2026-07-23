@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import io
+
+import openpyxl
+
 from app import brackets, i18n, match_service, models, services, standings
 from tests.conftest import make_team
 
@@ -35,6 +39,52 @@ def test_group_standings_points_and_order(db_session):
     rows = standings.compute_group_standings(db_session, t, g)
     assert rows[0]["team_name"] == "A"
     assert rows[0]["points"] == 6
+
+
+def test_standings_export_separates_groups_into_sheets(db_session, admin_client):
+    t = models.Tournament(name="Cup", status="active")
+    db_session.add(t)
+    db_session.commit()
+    db_session.refresh(t)
+
+    teams = [make_team(db_session, name) for name in ("A1", "A2", "B1", "B2")]
+    for team in teams:
+        db_session.add(models.TournamentTeam(tournament_id=t.id, team_id=team.id))
+    g1 = models.Group(tournament_id=t.id, name="Group A")
+    g2 = models.Group(tournament_id=t.id, name="Group B")
+    db_session.add_all([g1, g2])
+    db_session.commit()
+    db_session.refresh(g1)
+    db_session.refresh(g2)
+    for team in teams[:2]:
+        db_session.add(models.GroupTeam(group_id=g1.id, team_id=team.id))
+    for team in teams[2:]:
+        db_session.add(models.GroupTeam(group_id=g2.id, team_id=team.id))
+    db_session.add(models.Match(
+        tournament_id=t.id, stage="group", group_id=g1.id,
+        team_a_id=teams[0].id, team_b_id=teams[1].id,
+        status="completed", score_a=7, score_b=3,
+    ))
+    db_session.add(models.Match(
+        tournament_id=t.id, stage="group", group_id=g2.id,
+        team_a_id=teams[2].id, team_b_id=teams[3].id,
+        status="completed", score_a=4, score_b=4, is_draw=True,
+    ))
+    db_session.commit()
+
+    r = admin_client.get(f"/api/reports/standings/{t.id}.xlsx")
+
+    assert r.status_code == 200
+    wb = openpyxl.load_workbook(io.BytesIO(r.content), read_only=True)
+    try:
+        assert wb.sheetnames == ["Group A", "Group B"]
+        group_a_rows = list(wb["Group A"].iter_rows(values_only=True))
+        group_b_rows = list(wb["Group B"].iter_rows(values_only=True))
+        assert group_a_rows[1][1] == "A1"
+        assert group_a_rows[1][6] == 3
+        assert group_b_rows[1][6] == 1
+    finally:
+        wb.close()
 
 
 def test_knockout_generation_with_byes_and_advance(db_session):

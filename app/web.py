@@ -100,7 +100,21 @@ def dashboard(request: Request, db: Session, user: models.User):
         "top_match": top_match,
     }
     tournaments = db.query(models.Tournament).order_by(models.Tournament.created_at.desc()).all()
-    return render(request, db, "dashboard.html", user=user, stats=stats, tournaments=tournaments)
+    group_results = []
+    for tr in tournaments:
+        groups = []
+        for g in tr.groups:
+            rows = standings_mod.compute_group_standings(db, tr, g)
+            completed_matches = db.query(models.Match).filter_by(
+                tournament_id=tr.id,
+                group_id=g.id,
+                status="completed",
+            ).count()
+            groups.append({"group": g, "rows": rows, "completed_matches": completed_matches})
+        if groups:
+            group_results.append({"tournament": tr, "groups": groups})
+    return render(request, db, "dashboard.html", user=user, stats=stats,
+                  tournaments=tournaments, group_results=group_results)
 
 
 # --------------------------------------------------------------------------- #

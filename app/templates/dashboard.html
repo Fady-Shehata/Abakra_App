@@ -43,4 +43,59 @@
     {% endfor %}
   </table>
 </div>
+
+<div class="card">
+  <h3>{{ t('report_standings') }}</h3>
+  {% if group_results %}
+    {% for item in group_results %}
+      <h4 class="mt">{{ item.tournament.name }}</h4>
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));">
+        {% for grp in item.groups %}
+        <div class="score-breakdown">
+          <div class="score-breakdown-head">
+            <strong>{{ grp.group.name }}</strong>
+            <span>{{ grp.completed_matches }}</span>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>{{ t('rank') }}</th>
+                <th>{{ t('team') }}</th>
+                <th>{{ t('played') }}</th>
+                <th>{{ t('won') }}</th>
+                <th>{{ t('drawn') }}</th>
+                <th>{{ t('lost') }}</th>
+                <th>{{ t('points') }}</th>
+                <th>{{ t('gf') }}</th>
+                <th>{{ t('ga') }}</th>
+                <th>{{ t('gd') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in grp.rows %}
+              <tr>
+                <td>{{ row.rank }}</td>
+                <td>{{ row.team_name }}</td>
+                <td>{{ row.played }}</td>
+                <td>{{ row.won }}</td>
+                <td>{{ row.drawn }}</td>
+                <td>{{ row.lost }}</td>
+                <td><strong>{{ row.points }}</strong></td>
+                <td>{{ row.gf }}</td>
+                <td>{{ row.ga }}</td>
+                <td>{{ row.gd }}</td>
+              </tr>
+              {% else %}
+              <tr><td colspan="10" class="muted">—</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endfor %}
+      </div>
+    {% endfor %}
+  {% else %}
+    <p class="muted">—</p>
+  {% endif %}
+</div>
 {% endblock %}
