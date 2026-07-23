@@ -180,10 +180,12 @@
       <td>
         <div style="display:inline-flex; align-items:center; gap:6px; vertical-align:middle">
           <a class="btn sm ghost" href="/game/{{ m.id }}">{{ t('match') }}</a>
+          {% if m.status in ('in_progress', 'paused', 'completed') %}
           {% if m.status == 'completed' %}
           <a class="btn sm primary" href="/matches/{{ m.id }}/score">Score Board</a>
+          {% endif %}
           <form method="post" action="/matches/{{ m.id }}/restart-ready"
-                data-confirm="Restart this completed match and make it ready (جاهزة)? Existing score events for this match will be cleared."
+                data-confirm="Restart this match and make it ready (جاهزة)? Existing live progress and score events for this match will be cleared."
                 style="display:contents">
             <button class="btn sm ghost">Make Ready</button>
           </form>
