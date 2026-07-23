@@ -19,6 +19,7 @@ env/
 
 # Runtime storage
 data_store/
+tests/_testdata/
 *.db
 *.db-shm
 *.db-wal
