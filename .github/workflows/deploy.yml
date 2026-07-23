@@ -1,0 +1,68 @@
+name: CI and Deploy
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest -q
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Configure SSH
+        env:
+          DO_SSH_KEY: ${{ secrets.DO_SSH_KEY }}
+          DO_HOST: ${{ secrets.DO_HOST }}
+        run: |
+          test -n "$DO_SSH_KEY"
+          test -n "$DO_HOST"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$DO_SSH_KEY" > ~/.ssh/do_deploy_key
+          chmod 600 ~/.ssh/do_deploy_key
+          ssh-keyscan -H "$DO_HOST" >> ~/.ssh/known_hosts
+
+      - name: Deploy on Droplet
+        env:
+          DO_HOST: ${{ secrets.DO_HOST }}
+          DO_USER: ${{ secrets.DO_USER }}
+          APP_DIR: ${{ secrets.APP_DIR }}
+        run: |
+          ssh -i ~/.ssh/do_deploy_key "${DO_USER:-deploy}@${DO_HOST}" "
+            set -e
+            cd \"${APP_DIR:-/opt/abakra/Abakra_App}\"
+            git fetch origin main
+            git merge --ff-only origin/main
+            . .venv/bin/activate
+            pip install -r requirements.txt
+            sudo systemctl restart abakra
+            sudo systemctl --no-pager --full status abakra
+          "
