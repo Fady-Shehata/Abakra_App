@@ -397,10 +397,15 @@ input[type="file"]::file-selector-button:hover {
 }
 
 .score-breakdown {
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   border: 1px solid var(--border-color);
   border-radius: var(--radius);
   background: rgba(30, 51, 80, .45);
+}
+
+.score-breakdown table {
+  min-width: 640px;
 }
 
 .score-breakdown-head {
@@ -425,6 +430,39 @@ input[type="file"]::file-selector-button:hover {
   font-size: 2rem;
   font-weight: 900;
   line-height: 1;
+}
+
+.table-scroll {
+  overflow-x: auto;
+}
+
+.section-edit-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) minmax(160px, 1fr) 90px auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.section-delete-form {
+  display: inline-flex;
+  margin-top: 8px;
+}
+
+.check-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+.check-inline input {
+  width: auto;
+}
+
+@media (max-width: 780px) {
+  .section-edit-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Wheel */

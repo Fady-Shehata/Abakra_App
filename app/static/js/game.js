@@ -24,10 +24,7 @@
 
   const $ = (id) => document.getElementById(id);
 
-  // Visual order of sections (section IDs). Kept independent from the
-  // underlying section IDs so game logic (scoring, rebound rules, engine
-  // plans) stays wired to their original numbers.
-  const SECTION_ORDER = [1, 2, 5, 3, 4];
+  const DEFAULT_SECTION_ORDER = [1, 2, 5, 3, 4];
 
   async function call(path, body) {
     const r = await apiPost(base + path, body);
@@ -104,12 +101,12 @@
   function renderTabs() {
     const el = $('section-tabs');
     el.innerHTML = '';
-    SECTION_ORDER.forEach((s, i) => {
+    sectionOrder().forEach((s, i) => {
       const div = document.createElement('div');
       div.className = 'tab';
       if (state.current_section === s) div.classList.add('active');
       if (state.sections[s] && state.sections[s].completed) div.classList.add('done');
-      div.textContent = `${i + 1}. ${state.section_names[s]}`;
+      div.textContent = `${i + 1}. ${sectionName(s)}`;
       el.appendChild(div);
     });
   }
@@ -130,7 +127,7 @@
     // section start buttons
     const bar = document.createElement('div');
     bar.className = 'controls';
-    SECTION_ORDER.forEach((s, i) => {
+    sectionOrder().forEach((s, i) => {
       const done = state.sections[s] && state.sections[s].completed;
       bar.appendChild(btn(`${L['start_section']} ${i + 1}`, done ? 'ghost' : (sec === s ? 'primary' : ''),
         () => call('/start-section', { section: s })));
@@ -139,20 +136,21 @@
 
     if (!sec || !state.sections[sec]) return;
     const busy = state.current && state.current.phase && state.current.phase !== 'done';
+    const secType = sectionType(sec);
 
-    if (sec === 4) { renderWheel(el, busy); return; }
-    if (sec === 5) {
-      const b = btn(`${L['reveal']} — ${state.section_names[5]}`, 'primary',
-        () => call('/select', { section: 5, category_id: state.special_category_id, team: null }), busy);
+    if (secType === 4) { renderWheel(el, busy, sec); return; }
+    if (secType === 5) {
+      const b = btn(`${L['reveal']} — ${sectionName(sec)}`, 'primary',
+        () => call('/select', { section: sec, category_id: state.special_category_id, team: null }), busy);
       el.appendChild(b);
       return;
     }
 
-    // Sections 1-3: category chips (section 1 needs team choice)
+    // Regular question sections: section type 1 needs team choice.
     const wrap = document.createElement('div');
     wrap.className = 'cat-chips mt';
     state.remaining.forEach(c => {
-      if (sec === 1) {
+      if (secType === 1) {
         ['a', 'b'].forEach(team => {
           const chip = mkChip(`${c.name} — ${team === 'a' ? state.team_a.name : state.team_b.name} (${c.remaining})`,
             c.remaining <= 0 || busy, () => call('/select', { section: sec, category_id: c.id, team }));
@@ -213,6 +211,7 @@
     qc.innerHTML = renderQuestionPanel(cur, c, answerUnlocked);
 
     const sec = cur.section;
+    const secType = Number(cur.section_type || sectionType(sec));
     if (cur.phase === 'selected') {
       ctrl.appendChild(btn(L['reveal'], 'primary', () => call('/reveal', {})));
       ctrl.appendChild(btn(L['skip'], 'ghost', () => call('/mark', { action: 'skip' })));
@@ -223,22 +222,22 @@
       ctrl.appendChild(btn(L['show_answer'] || 'Show Answer', 'primary', () => { showAnswer = true; render(); }));
     }
     if (cur.phase === 'revealed') {
-      if (sec === 5) {
+      if (secType === 5) {
         ctrl.appendChild(btn(`${L['father_a']} (+10)`, 'success', () => call('/mark', { action: 'father_a' })));
         ctrl.appendChild(btn(`${L['father_b']} (+10)`, 'success', () => call('/mark', { action: 'father_b' })));
         ctrl.appendChild(btn(L['no_answer'], 'ghost', () => call('/mark', { action: 'father_none' })));
-      } else if (sec === 1 || sec === 4) {
+      } else if (secType === 1 || secType === 4) {
         // assigned-team sections: correct on the assigned team only
         const team = cur.team;
         ctrl.appendChild(btn(L[team === 'a' ? 'a_correct' : 'b_correct'] + ' (+5)', 'success',
           () => call('/mark', { action: team === 'a' ? 'a_correct' : 'b_correct' })));
         ctrl.appendChild(btn(L['wrong'] + ' → ' + L['open_rebound'], 'danger', () => call('/mark', { action: 'wrong' })));
-      } else if (sec === 2) {
+      } else if (secType === 2) {
         // buzzer decides who answers; both correct buttons available
         ctrl.appendChild(btn(L['a_correct'] + ' (+5)', 'success', () => call('/mark', { action: 'a_correct' })));
         ctrl.appendChild(btn(L['b_correct'] + ' (+5)', 'success', () => call('/mark', { action: 'b_correct' })));
         ctrl.appendChild(btn(L['wrong'] + ' → ' + L['open_rebound'], 'danger', () => call('/mark', { action: 'wrong' })));
-      } else if (sec === 3) {
+      } else if (secType === 3) {
         // individual: no rebound
         ctrl.appendChild(btn(L['a_correct'] + ' (+5)', 'success', () => call('/mark', { action: 'a_correct' })));
         ctrl.appendChild(btn(L['b_correct'] + ' (+5)', 'success', () => call('/mark', { action: 'b_correct' })));
@@ -305,7 +304,7 @@
   }
 
   // ---------- wheel ----------
-  function renderWheel(el, busy) {
+  function renderWheel(el, busy, sectionId) {
     const w = state.wheel || { spins_a: 3, spins_b: 3, turn: 'a' };
     const box = document.createElement('div');
     box.className = 'wheel-wrap mt';
@@ -323,7 +322,7 @@
     bar.appendChild(btn(`${L['spin']} — ${state.team_b.name}`, 'primary',
       () => doSpin('b'), busy || w.spins_b <= 0));
     el.appendChild(bar);
-    el.appendChild(btn(L['finish_section'], 'ghost mt', () => call('/finish-section', { section: 4 })));
+    el.appendChild(btn(L['finish_section'], 'ghost mt', () => call('/finish-section', { section: sectionId })));
 
     if (state.last_spin) {
       const info = document.createElement('p');
@@ -361,7 +360,7 @@
         } else if (spin) {
           const cat = state.remaining.find(c => c.name === spin.result);
           if (cat && cat.remaining > 0) {
-            call('/select', { section: 4, category_id: cat.id, team });
+            call('/select', { section: state.current_section, category_id: cat.id, team });
           } else {
             render();
             window.SmartAlert(L['not_enough_questions'] + ': ' + spin.result);
@@ -400,7 +399,7 @@
     state.remaining.forEach(c => {
       cc.appendChild(mkChip(`${c.name} (${c.remaining})`, c.remaining <= 0, () => {
         root.innerHTML = '';
-        call('/select', { section: 4, category_id: c.id, team, via_joker: true });
+        call('/select', { section: state.current_section, category_id: c.id, team, via_joker: true });
       }));
     });
     $('joker-cancel').onclick = () => { root.innerHTML = ''; render(); };
@@ -589,6 +588,20 @@
 
   function escapeHtml(s) {
     return (s || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+  }
+
+  function sectionOrder() {
+    const raw = state && Array.isArray(state.section_order) && state.section_order.length
+      ? state.section_order : DEFAULT_SECTION_ORDER;
+    return raw.map(Number);
+  }
+
+  function sectionType(sectionId) {
+    return Number((state.section_types || {})[sectionId] || sectionId);
+  }
+
+  function sectionName(sectionId) {
+    return (state.section_names || {})[sectionId] || `#${sectionId}`;
   }
 
   // poll for external changes

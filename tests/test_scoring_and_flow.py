@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 
-from app import game as ge, models
+from app import game as ge, models, scoring
 from tests.conftest import make_category, make_match_with_session, make_question, make_source
 
 
@@ -127,6 +127,65 @@ def test_skip_replaces_question_without_revealing_or_advancing(db_session):
     assert usage.state == "selected"
     assert skipped_usage.state == "skipped"
     assert st["sections"]["2"]["index"] == 0
+
+
+def test_admin_category_delete_removes_questions_and_usages(admin_client, db_session):
+    _clear_categories(db_session)
+    cat = make_category(db_session, "Delete Me", True, True)
+    src = make_source(db_session, "delete_cat.xlsx")
+    q = make_question(db_session, cat.id, src.id, "Q_delete_cat", "h_delete_cat")
+    cat_id = cat.id
+    question_id = q.id
+    m = make_match_with_session(db_session)
+    ge.start_section(db_session, m.session, 2)
+    ge.select_question(db_session, m.session, 2, cat.id, None, None)
+    db_session.add(models.ScoreEvent(
+        match_id=m.id,
+        session_id=m.session.id,
+        section=2,
+        team_id=m.team_a_id,
+        question_id=q.id,
+        delta=5,
+        reason="test",
+        host_id=None,
+    ))
+    db_session.commit()
+
+    r = admin_client.post(f"/categories/{cat_id}/delete", follow_redirects=False)
+
+    assert r.status_code in (302, 303)
+    db_session.expire_all()
+    assert db_session.get(models.Category, cat_id) is None
+    assert db_session.query(models.Question).filter_by(category_id=cat_id).count() == 0
+    assert db_session.query(models.QuestionUsage).filter_by(question_id=question_id).count() == 0
+    event = db_session.query(models.ScoreEvent).filter_by(match_id=m.id, reason="test").one()
+    assert event.question_id is None
+
+
+def test_admin_custom_section_can_start_with_selected_structure(admin_client, db_session):
+    _clear_categories(db_session)
+    cat = make_category(db_session, "Custom Section Cat", True, True)
+    src = make_source(db_session, "custom_section.xlsx")
+    make_question(db_session, cat.id, src.id, "Q_custom_section", "h_custom_section")
+
+    page = admin_client.get("/sections")
+    assert page.status_code == 200
+    r = admin_client.post(
+        "/sections/create",
+        data={"name": "Custom Speed", "template_id": "2", "order": "0"},
+        follow_redirects=False,
+    )
+
+    assert r.status_code in (302, 303)
+    db_session.expire_all()
+    sections = scoring.load_section_config(db_session, include_disabled=False)
+    custom = next(row for row in sections if row["name"] == "Custom Speed")
+    m = make_match_with_session(db_session)
+    st = ge.start_section(db_session, m.session, custom["id"])
+
+    assert st["current_section"] == custom["id"]
+    assert st["sections"][str(custom["id"])]["section_type"] == 2
+    assert scoring.section_order(db_session)[0] == custom["id"]
 
 
 def test_section1_mental_ability_exception(db_session):

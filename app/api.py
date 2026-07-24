@@ -33,6 +33,8 @@ def _serialize_state(db: Session, match: models.Match) -> dict:
     session = match.session
     state = ge.load_state(session) if session else ge._default_state()
     remaining = ge.remaining_by_category(db, session.id) if session else []
+    section_names = scoring.section_names(db)
+    section_types = scoring.section_types(db)
     current = state.get("current")
     current_view = None
     if current:
@@ -43,7 +45,11 @@ def _serialize_state(db: Session, match: models.Match) -> dict:
         if not include:
             content.pop("text", None)
             content.pop("choices", None)
-        current_view = {**current, "content": content}
+        current_view = {
+            **current,
+            "section_type": current.get("section_type") or section_types.get(current.get("section")),
+            "content": content,
+        }
     # history
     events = (
         db.query(models.ScoreEvent)
@@ -75,7 +81,9 @@ def _serialize_state(db: Session, match: models.Match) -> dict:
         "buzzer": state.get("buzzer"),
         "last_spin": state.get("last_spin"),
         "remaining": remaining,
-        "section_names": scoring.SECTION_NAMES,
+        "section_names": section_names,
+        "section_order": scoring.section_order(db),
+        "section_types": section_types,
         "history": history,
         "winner_team_id": match.winner_team_id,
         "is_draw": match.is_draw,

@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %} · {{ 'الفقرات' if lang.startswith('ar') else 'Sections' }}{% endblock %}
+{% block content %}
+{% set page_title = 'الفقرات' if lang.startswith('ar') else 'Sections' %}
+{% set structure_label = 'الهيكل' if lang.startswith('ar') else 'Structure' %}
+{% set order_label = 'الترتيب' if lang.startswith('ar') else 'Order' %}
+{% set enabled_label = 'مفعل' if lang.startswith('ar') else 'Enabled' %}
+{% set new_section_label = 'فقرة جديدة' if lang.startswith('ar') else 'New Section' %}
+{% set confirm_delete_section = 'حذف هذه الفقرة؟' if lang.startswith('ar') else 'Delete this section?' %}
+<h1>{{ page_title }}</h1>
+
+<div class="grid" style="grid-template-columns: 1fr 2fr;">
+  <div class="card">
+    <h3>{{ new_section_label }}</h3>
+    <form method="post" action="/sections/create">
+      <label>{{ t('name') }}</label>
+      <input name="name" required />
+      <label>{{ structure_label }}</label>
+      <select name="template_id">
+        {% for tpl in section_templates %}
+        <option value="{{ tpl.id }}">{{ tpl.name }}</option>
+        {% endfor %}
+      </select>
+      <label>{{ order_label }}</label>
+      <input type="number" name="order" value="{{ sections|length + 1 }}" min="1" />
+      <button class="btn primary mt" type="submit">{{ t('create') }}</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h3>{{ page_title }} <span class="member-count-badge">{{ sections|length }}</span></h3>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>{{ t('name') }}</th>
+            <th>{{ structure_label }}</th>
+            <th>{{ order_label }}</th>
+            <th>{{ enabled_label }}</th>
+            <th>{{ t('actions') }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in sections %}
+          <tr>
+            <td colspan="5">
+              <form method="post" action="/sections/{{ s.id }}/update" class="section-edit-row">
+                <input name="name" value="{{ s.name }}" required />
+                <select name="template_id">
+                  {% for tpl in section_templates %}
+                  <option value="{{ tpl.id }}" {% if tpl.id == s.template_id %}selected{% endif %}>{{ tpl.name }}</option>
+                  {% endfor %}
+                </select>
+                <input type="number" name="order" value="{{ s.order }}" min="1" />
+                <label class="check-inline">
+                  <input type="checkbox" name="enabled" {% if s.enabled %}checked{% endif %} />
+                  <span>{{ enabled_label }}</span>
+                </label>
+                <button class="btn sm ghost" type="submit">{{ t('save') }}</button>
+              </form>
+              <form method="post" action="/sections/{{ s.id }}/delete" class="section-delete-form"
+                    data-confirm="{{ confirm_delete_section }}" data-confirm-kind="danger">
+                <button class="btn sm danger" type="submit">{{ t('delete') }}</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="muted">-</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

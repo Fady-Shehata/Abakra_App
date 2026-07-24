@@ -49,7 +49,7 @@
   {% if group_results %}
     {% for item in group_results %}
       <h4 class="mt">{{ item.tournament.name }}</h4>
-      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));">
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));">
         {% for grp in item.groups %}
         <div class="score-breakdown">
           <div class="score-breakdown-head">

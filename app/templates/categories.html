@@ -56,15 +56,11 @@
         </td>
         <td>{{ counts[c.id] }}</td>
         <td>
-          {% if counts[c.id] == 0 %}
           <form method="post" action="/categories/{{ c.id }}/delete" style="display:inline"
-                data-confirm="{{ t('confirm_delete_category') }}"
+                data-confirm="{{ t('confirm_delete_category') }} {{ t('questions') }}: {{ counts[c.id] }}"
                 data-confirm-kind="danger">
             <button class="btn sm danger" type="submit" title="{{ t('delete') }}">🗑️</button>
           </form>
-          {% else %}
-          <span class="muted" style="font-size:12px">{{ t('category_has_questions') }}</span>
-          {% endif %}
         </td>
       </tr>
       {% else %}<tr><td colspan="5" class="muted">—</td></tr>{% endfor %}

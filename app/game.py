@@ -96,23 +96,27 @@ def start_section(db: Session, session: models.GameSession, section: int) -> dic
     state = load_state(session)
     cats = regular_categories(db)
     key = str(section)
+    if section not in scoring.section_order(db):
+        raise GameError("invalid_transition")
+    section_type = scoring.section_type(db, section)
+    section_name = scoring.section_names(db).get(section, scoring.SECTION_NAMES.get(section_type, str(section)))
 
-    if section == 1:
+    if section_type == 1:
         plan = scoring.build_section1_plan(cats)
-    elif section == 2:
+    elif section_type == 2:
         plan = scoring.build_section2_plan(cats)
-    elif section == 3:
+    elif section_type == 3:
         plan = scoring.build_section3_plan(cats)
-    elif section == 4:
+    elif section_type == 4:
         state["wheel"] = {**scoring.build_section4_plan(), "turn": "a"}
         plan = []
-    elif section == 5:
-        plan = [{"category_id": None, "category_name": scoring.SECTION_NAMES[5], "team": None}]
+    elif section_type == 5:
+        plan = [{"category_id": None, "category_name": section_name, "team": None}]
     else:
         raise GameError("invalid_transition")
 
     # validate availability per category (sections 1-3)
-    if section in (1, 2, 3):
+    if section_type in (1, 2, 3):
         need: dict[int, int] = {}
         for slot in plan:
             need[slot["category_id"]] = need.get(slot["category_id"], 0) + 1
@@ -121,7 +125,13 @@ def start_section(db: Session, session: models.GameSession, section: int) -> dic
                 cat = db.get(models.Category, cat_id)
                 raise GameError("not_enough_questions", n=n, cat=cat.name if cat else cat_id)
 
-    state["sections"][key] = {"plan": plan, "index": 0, "completed": False}
+    state["sections"][key] = {
+        "plan": plan,
+        "index": 0,
+        "completed": False,
+        "section_type": section_type,
+        "name": section_name,
+    }
     state["current_section"] = section
     state["current"] = None
     state["buzzer"] = {"locked": False, "team": None}
@@ -194,7 +204,8 @@ def select_question(
         state["current"] = {
             "usage_id": usage.id, "question_id": qid, "category_id": category_id,
             "category_name": db.get(models.Category, category_id).name,
-            "team": team, "section": section, "phase": "selected",
+            "team": team, "section": section, "section_type": scoring.section_type(db, section),
+            "phase": "selected",
             "buzz_team": None, "via_joker": via_joker,
         }
         save_state(db, session, state)
@@ -293,8 +304,8 @@ def mark_wrong(db: Session, session: models.GameSession, host_id: Optional[int])
     cur = state.get("current")
     if not cur or cur["phase"] not in ("revealed",):
         raise GameError("reveal_first")
-    section = cur["section"]
-    if scoring.SECTION_REBOUND.get(section):
+    section_type = cur.get("section_type") or scoring.section_type(db, cur["section"])
+    if scoring.SECTION_REBOUND.get(section_type):
         cur["phase"] = "rebound_open"
         save_state(db, session, state)
         return state
@@ -317,7 +328,8 @@ def open_rebound(db: Session, session: models.GameSession, host_id: Optional[int
     cur = state.get("current")
     if not cur or cur["phase"] != "revealed":
         raise GameError("invalid_transition")
-    if not scoring.SECTION_REBOUND.get(cur["section"]):
+    section_type = cur.get("section_type") or scoring.section_type(db, cur["section"])
+    if not scoring.SECTION_REBOUND.get(section_type):
         raise GameError("invalid_transition")
     cur["phase"] = "rebound_open"
     save_state(db, session, state)
@@ -362,7 +374,7 @@ def father_award(db: Session, session: models.GameSession, team: Optional[str], 
     match = session.match
     if team in ("a", "b"):
         pts = scoring.FATHER_POINTS
-        _add_score(db, match, team, pts, "father_correct", 5, cur["question_id"], host_id)
+        _add_score(db, match, team, pts, "father_correct", cur["section"], cur["question_id"], host_id)
         _finish_current(db, session, state, "correct", None, pts)
     else:
         _finish_current(db, session, state, "none", None, 0)

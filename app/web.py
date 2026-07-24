@@ -315,15 +315,120 @@ def category_delete(cid: int, db: Session = Depends(get_db),
                     user: models.User = Depends(require_admin)):
     cat = db.get(models.Category, cid)
     if cat:
-        # Safe delete: only when the category is empty. Otherwise the admin
-        # must first reassign or delete its questions.
-        used = db.query(models.Question).filter_by(category_id=cid).count()
-        if used == 0:
-            name = cat.name
-            db.delete(cat)
-            db.commit()
-            security.audit(db, user.id, "delete_category", f"id={cid} name={name}")
+        name = cat.name
+        question_ids = [
+            row[0] for row in db.query(models.Question.id)
+            .filter_by(category_id=cid)
+            .all()
+        ]
+        if question_ids:
+            db.query(models.ScoreEvent).filter(
+                models.ScoreEvent.question_id.in_(question_ids)
+            ).update({"question_id": None}, synchronize_session=False)
+            db.query(models.QuestionUsage).filter(
+                models.QuestionUsage.question_id.in_(question_ids)
+            ).delete(synchronize_session=False)
+            db.query(models.Question).filter(
+                models.Question.id.in_(question_ids)
+            ).delete(synchronize_session=False)
+        for session in db.query(models.GameSession).filter(models.GameSession.state_json.isnot(None)).all():
+            state = game_engine.load_state(session)
+            changed = False
+            current = state.get("current")
+            if current and current.get("category_id") == cid:
+                state["current"] = None
+                state["buzzer"] = {"locked": False, "team": None}
+                changed = True
+            for section_state in state.get("sections", {}).values():
+                plan = section_state.get("plan")
+                if not isinstance(plan, list):
+                    continue
+                next_plan = [slot for slot in plan if slot.get("category_id") != cid]
+                if len(next_plan) != len(plan):
+                    section_state["plan"] = next_plan
+                    section_state["index"] = min(section_state.get("index", 0), len(next_plan))
+                    changed = True
+            if changed:
+                session.state_json = json.dumps(state, ensure_ascii=False)
+        db.query(models.QuestionImport).filter_by(category_id=cid).delete(synchronize_session=False)
+        db.delete(cat)
+        db.commit()
+        security.audit(db, user.id, "delete_category", f"id={cid} name={name} questions={len(question_ids)}")
     return RedirectResponse("/categories", 302)
+
+
+# --------------------------------------------------------------------------- #
+# Sections
+# --------------------------------------------------------------------------- #
+@router.get("/sections", response_class=HTMLResponse)
+def sections_page(request: Request, db: Session = Depends(get_db),
+                  user: models.User = Depends(require_admin)):
+    return render(
+        request, db, "sections.html",
+        user=user,
+        sections=scoring.load_section_config(db),
+        section_templates=list(scoring.SECTION_TEMPLATES.values()),
+    )
+
+
+@router.post("/sections/create")
+def section_create(name: str = Form(""), template_id: int = Form(2), order: int = Form(99),
+                   db: Session = Depends(get_db),
+                   user: models.User = Depends(require_admin)):
+    rows = scoring.load_section_config(db)
+    template_id = template_id if template_id in scoring.SECTION_TEMPLATES else 2
+    new_id = max([row["id"] for row in rows] + [5]) + 1
+    section_name = (name or "").strip() or scoring.SECTION_TEMPLATES[template_id]["name"]
+    rows.append({
+        "id": new_id,
+        "name": section_name,
+        "order": order,
+        "template_id": template_id,
+        "enabled": True,
+        "built_in": False,
+    })
+    scoring.save_section_config(db, rows)
+    security.audit(db, user.id, "create_section", f"id={new_id} template={template_id}")
+    return RedirectResponse("/sections", 302)
+
+
+@router.post("/sections/{sid}/update")
+def section_update(sid: int, name: str = Form(""), template_id: int = Form(2),
+                   order: int = Form(99), enabled: str = Form(""),
+                   db: Session = Depends(get_db),
+                   user: models.User = Depends(require_admin)):
+    rows = scoring.load_section_config(db)
+    template_id = template_id if template_id in scoring.SECTION_TEMPLATES else 2
+    for row in rows:
+        if row["id"] == sid:
+            row["name"] = (name or "").strip() or row["name"]
+            row["template_id"] = template_id
+            row["order"] = order
+            row["enabled"] = enabled == "on"
+            break
+    scoring.save_section_config(db, rows)
+    security.audit(db, user.id, "update_section", f"id={sid} template={template_id}")
+    return RedirectResponse("/sections", 302)
+
+
+@router.post("/sections/{sid}/delete")
+def section_delete(sid: int, db: Session = Depends(get_db),
+                   user: models.User = Depends(require_admin)):
+    rows = scoring.load_section_config(db)
+    changed = False
+    next_rows = []
+    for row in rows:
+        if row["id"] != sid:
+            next_rows.append(row)
+            continue
+        changed = True
+        if row.get("built_in"):
+            row["enabled"] = False
+            next_rows.append(row)
+    if changed:
+        scoring.save_section_config(db, next_rows)
+        security.audit(db, user.id, "delete_section", f"id={sid}")
+    return RedirectResponse("/sections", 302)
 
 
 # --------------------------------------------------------------------------- #
@@ -915,14 +1020,15 @@ def match_score_page(mid: int, request: Request, db: Session = Depends(get_db),
         .order_by(models.ScoreEvent.created_at.asc(), models.ScoreEvent.id.asc())
         .all()
     )
-    section_order = sorted(scoring.SECTION_NAMES)
+    section_order = scoring.section_order(db, include_disabled=True)
+    section_names = scoring.section_names(db, include_disabled=True)
     section_totals: dict[int, dict] = {}
     team_breakdowns = {
         "a": {
             "name": m.team_a.name if m.team_a else "—",
             "score": m.score_a,
             "sections": {
-                sec: {"section": sec, "name": scoring.SECTION_NAMES[sec], "total": 0, "events": []}
+                sec: {"section": sec, "name": section_names.get(sec, str(sec)), "total": 0, "events": []}
                 for sec in section_order
             },
         },
@@ -930,7 +1036,7 @@ def match_score_page(mid: int, request: Request, db: Session = Depends(get_db),
             "name": m.team_b.name if m.team_b else "—",
             "score": m.score_b,
             "sections": {
-                sec: {"section": sec, "name": scoring.SECTION_NAMES[sec], "total": 0, "events": []}
+                sec: {"section": sec, "name": section_names.get(sec, str(sec)), "total": 0, "events": []}
                 for sec in section_order
             },
         },
@@ -947,10 +1053,19 @@ def match_score_page(mid: int, request: Request, db: Session = Depends(get_db),
         if sec not in section_totals:
             section_totals[sec] = {
                 "section": sec,
-                "name": scoring.SECTION_NAMES.get(sec, "—"),
+                "name": section_names.get(sec, "—"),
                 "a": 0,
                 "b": 0,
         }
+        if sec not in section_order:
+            section_order.append(sec)
+            for tb in team_breakdowns.values():
+                tb["sections"][sec] = {
+                    "section": sec,
+                    "name": section_names.get(sec, str(sec)),
+                    "total": 0,
+                    "events": [],
+                }
         if team_side in ("a", "b"):
             section_totals[sec][team_side] += e.delta
         row = {
@@ -959,7 +1074,7 @@ def match_score_page(mid: int, request: Request, db: Session = Depends(get_db),
             "team_name": team_name,
             "question_code": q.question_code if q else "—",
             "category": cat.name if cat else "—",
-            "section_name": scoring.SECTION_NAMES.get(sec, "—"),
+            "section_name": section_names.get(sec, "—"),
         }
         rows.append(row)
         if team_side in ("a", "b") and sec in team_breakdowns[team_side]["sections"]:
