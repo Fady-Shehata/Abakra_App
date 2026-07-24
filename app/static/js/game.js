@@ -7,8 +7,8 @@
   const IS_ADMIN = root.dataset.isAdmin === '1';
   const base = `/api/game/${MID}`;
   let state = null;
-  let timer = { remaining: 30, duration: 30, running: false, handle: null, key: null };
-  const NORMAL_TIMER_SECONDS = 30;
+  let timer = { remaining: 35, duration: 35, running: false, handle: null, key: null };
+  const NORMAL_TIMER_SECONDS = 35;
   const REBOUND_TIMER_SECONDS = 5;
   const TIMER_SOUND_URL = '/static/audio/timer-effect.mp3';
   const SPIN_SOUND_URL = '/static/audio/spinning-effect.mp3';
@@ -21,6 +21,7 @@
   // "Show Answer" button. Reset each time a new question is revealed.
   let showAnswer = false;
   let lastQKey = null;
+  let autoStartTimerAfterReveal = false;
 
   const $ = (id) => document.getElementById(id);
 
@@ -209,11 +210,17 @@
       stopTimer();
     }
     qc.innerHTML = renderQuestionPanel(cur, c, answerUnlocked);
+    if (autoStartTimerAfterReveal && cur.phase === 'revealed') {
+      autoStartTimerAfterReveal = false;
+      startTimer();
+    } else if (autoStartTimerAfterReveal && cur.phase !== 'revealed') {
+      autoStartTimerAfterReveal = false;
+    }
 
     const sec = cur.section;
     const secType = Number(cur.section_type || sectionType(sec));
     if (cur.phase === 'selected') {
-      ctrl.appendChild(btn(L['reveal'], 'primary', () => call('/reveal', {})));
+      ctrl.appendChild(btn(L['reveal'], 'primary', revealQuestion));
       ctrl.appendChild(btn(L['skip'], 'ghost', () => call('/mark', { action: 'skip' })));
       return;
     }
@@ -588,6 +595,12 @@
 
   function escapeHtml(s) {
     return (s || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+  }
+
+  async function revealQuestion() {
+    autoStartTimerAfterReveal = true;
+    const r = await call('/reveal', {});
+    if (!r.ok) autoStartTimerAfterReveal = false;
   }
 
   function sectionOrder() {
