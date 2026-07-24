@@ -7,8 +7,8 @@
   const IS_ADMIN = root.dataset.isAdmin === '1';
   const base = `/api/game/${MID}`;
   let state = null;
-  let timer = { remaining: 35, duration: 35, running: false, handle: null, key: null };
-  const NORMAL_TIMER_SECONDS = 35;
+  let timer = { remaining: 30, duration: 30, running: false, handle: null, key: null };
+  const NORMAL_TIMER_SECONDS = 30;
   const REBOUND_TIMER_SECONDS = 5;
   const TIMER_SOUND_URL = '/static/audio/timer-effect.mp3';
   const SPIN_SOUND_URL = '/static/audio/spinning-effect.mp3';
