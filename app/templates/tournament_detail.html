@@ -35,7 +35,8 @@
     <ul class="mt" id="current-teams">
       {% for tt in tour.teams %}
       <li>
-        {{ tt.team.name }}{% if tt.team.level %} <span class="badge info">{{ tt.team.level }}</span>{% endif %}
+        <div class="team-title">{{ tt.team.name }}</div>
+        {% if tt.team.level %}<div class="team-subtitle">{{ tt.team.level }}</div>{% endif %}
         <form method="post" action="/tournaments/{{ tour.id }}/remove-team/{{ tt.team_id }}"
               style="display:inline-block; margin-inline-start:8px"
               data-confirm="سيتم إزالة الفريق: {{ tt.team.name }}"
@@ -104,8 +105,8 @@
         {% set cur = group_index_by_team.get(team.id, -1) %}
         <tr>
           <td>
-            {{ team.name }}
-            {% if team.level %}<span class="badge sm">{{ team.level }}</span>{% endif %}
+            <div class="team-title">{{ team.name }}</div>
+            {% if team.level %}<div class="team-subtitle">{{ team.level }}</div>{% endif %}
           </td>
           <td>
             <select name="team_group_{{ team.id }}" data-current="{{ cur }}" class="td-group-sel">
@@ -166,7 +167,7 @@
   <table>
     <tr><th>{{ t('rank') }}</th><th>{{ t('team') }}</th><th>{{ t('played') }}</th><th>{{ t('won') }}</th><th>{{ t('drawn') }}</th><th>{{ t('lost') }}</th><th>{{ t('points') }}</th><th>{{ t('gf') }}</th><th>{{ t('ga') }}</th><th>{{ t('gd') }}</th></tr>
     {% for r in gt.rows %}
-    <tr><td>{{ r.rank }}</td><td>{{ r.team_name }}</td><td>{{ r.played }}</td><td>{{ r.won }}</td><td>{{ r.drawn }}</td><td>{{ r.lost }}</td><td><strong>{{ r.points }}</strong></td><td>{{ r.gf }}</td><td>{{ r.ga }}</td><td>{{ r.gd }}</td></tr>
+    <tr><td>{{ r.rank }}</td><td><div class="team-title">{{ r.team_name }}</div>{% if r.team_level %}<div class="team-subtitle">{{ r.team_level }}</div>{% endif %}</td><td>{{ r.played }}</td><td>{{ r.won }}</td><td>{{ r.drawn }}</td><td>{{ r.lost }}</td><td><strong>{{ r.points }}</strong></td><td>{{ r.gf }}</td><td>{{ r.ga }}</td><td>{{ r.gd }}</td></tr>
     {% endfor %}
   </table>
 </div>
@@ -181,8 +182,18 @@
       <div class="muted right">{{ rnd.round.name }}</div>
       {% for s in rnd.slots %}
       <div class="slot">
-        <div class="team {{ 'win' if s.match and s.match.winner_team_id == s.slot.team_a_id else '' }}">{{ s.team_a.name if s.team_a else '—' }} {% if s.match and s.match.status == 'completed' %}<span class="muted">({{ s.match.score_a }})</span>{% endif %}</div>
-        <div class="team {{ 'win' if s.match and s.match.winner_team_id == s.slot.team_b_id else '' }}">{{ s.team_b.name if s.team_b else '—' }} {% if s.match and s.match.status == 'completed' %}<span class="muted">({{ s.match.score_b }})</span>{% endif %}</div>
+        <div class="team {{ 'win' if s.match and s.match.winner_team_id == s.slot.team_a_id else '' }}">
+          {% if s.team_a %}
+            <div class="team-title">{{ s.team_a.name }} {% if s.match and s.match.status == 'completed' %}<span class="muted">({{ s.match.score_a }})</span>{% endif %}</div>
+            {% if s.team_a.level %}<div class="team-subtitle">{{ s.team_a.level }}</div>{% endif %}
+          {% else %}—{% endif %}
+        </div>
+        <div class="team {{ 'win' if s.match and s.match.winner_team_id == s.slot.team_b_id else '' }}">
+          {% if s.team_b %}
+            <div class="team-title">{{ s.team_b.name }} {% if s.match and s.match.status == 'completed' %}<span class="muted">({{ s.match.score_b }})</span>{% endif %}</div>
+            {% if s.team_b.level %}<div class="team-subtitle">{{ s.team_b.level }}</div>{% endif %}
+          {% else %}—{% endif %}
+        </div>
         {% if s.match %}<div class="muted" style="font-size:.75rem">{{ t('match_status_' + s.match.status) }} · {{ s.match.host.display_name if s.match.host else '—' }}</div>{% endif %}
       </div>
       {% endfor %}
@@ -203,8 +214,18 @@
     {% for m in matches %}
     <tr>
       <td>{{ m.round_name or m.stage }}</td>
-      <td>{{ m.team_a.name if m.team_a else '—' }}</td>
-      <td>{{ m.team_b.name if m.team_b else '—' }}</td>
+      <td>
+        {% if m.team_a %}
+          <div class="team-title">{{ m.team_a.name }}</div>
+          {% if m.team_a.level %}<div class="team-subtitle">{{ m.team_a.level }}</div>{% endif %}
+        {% else %}—{% endif %}
+      </td>
+      <td>
+        {% if m.team_b %}
+          <div class="team-title">{{ m.team_b.name }}</div>
+          {% if m.team_b.level %}<div class="team-subtitle">{{ m.team_b.level }}</div>{% endif %}
+        {% else %}—{% endif %}
+      </td>
       <td>{% if m.status == 'completed' %}{{ m.score_a }} - {{ m.score_b }}{% else %}<span class="muted">—</span>{% endif %}</td>
       <td><span class="badge info">{{ t('match_status_' + m.status) }}</span></td>
     </tr>

@@ -38,8 +38,18 @@
       <tr>
         <td>{{ m.tournament.name }}</td>
         <td>{{ m.round_name or m.stage }}</td>
-        <td>{{ m.team_a.name if m.team_a else '—' }}</td>
-        <td>{{ m.team_b.name if m.team_b else '—' }}</td>
+        <td>
+          {% if m.team_a %}
+            <div class="team-title">{{ m.team_a.name }}</div>
+            {% if m.team_a.level %}<div class="team-subtitle">{{ m.team_a.level }}</div>{% endif %}
+          {% else %}—{% endif %}
+        </td>
+        <td>
+          {% if m.team_b %}
+            <div class="team-title">{{ m.team_b.name }}</div>
+            {% if m.team_b.level %}<div class="team-subtitle">{{ m.team_b.level }}</div>{% endif %}
+          {% else %}—{% endif %}
+        </td>
         <td>{{ m.score_a }} - {{ m.score_b }}</td>
         <td><span class="badge info">{{ t('match_status_' + m.status) }}</span></td>
         <td><a class="btn sm primary" href="/matches/{{ m.id }}/score">Score Board</a></td>

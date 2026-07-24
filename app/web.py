@@ -1026,6 +1026,7 @@ def match_score_page(mid: int, request: Request, db: Session = Depends(get_db),
     team_breakdowns = {
         "a": {
             "name": m.team_a.name if m.team_a else "—",
+            "level": m.team_a.level if m.team_a and m.team_a.level else "",
             "score": m.score_a,
             "sections": {
                 sec: {"section": sec, "name": section_names.get(sec, str(sec)), "total": 0, "events": []}
@@ -1034,6 +1035,7 @@ def match_score_page(mid: int, request: Request, db: Session = Depends(get_db),
         },
         "b": {
             "name": m.team_b.name if m.team_b else "—",
+            "level": m.team_b.level if m.team_b and m.team_b.level else "",
             "score": m.score_b,
             "sections": {
                 sec: {"section": sec, "name": section_names.get(sec, str(sec)), "total": 0, "events": []}
@@ -1048,6 +1050,9 @@ def match_score_page(mid: int, request: Request, db: Session = Depends(get_db),
         team_side = "a" if e.team_id == m.team_a_id else "b" if e.team_id == m.team_b_id else ""
         team_name = m.team_a.name if team_side == "a" and m.team_a else (
             m.team_b.name if team_side == "b" and m.team_b else "—"
+        )
+        team_level = m.team_a.level if team_side == "a" and m.team_a else (
+            m.team_b.level if team_side == "b" and m.team_b else ""
         )
         sec = e.section or 0
         if sec not in section_totals:
@@ -1072,6 +1077,7 @@ def match_score_page(mid: int, request: Request, db: Session = Depends(get_db),
             "event": e,
             "team_side": team_side,
             "team_name": team_name,
+            "team_level": team_level or "",
             "question_code": q.question_code if q else "—",
             "category": cat.name if cat else "—",
             "section_name": section_names.get(sec, "—"),
@@ -1082,10 +1088,13 @@ def match_score_page(mid: int, request: Request, db: Session = Depends(get_db),
             team_breakdowns[team_side]["sections"][sec]["events"].append(row)
 
     winner_name = ""
+    winner_level = ""
     if m.winner_team_id == m.team_a_id and m.team_a:
         winner_name = m.team_a.name
+        winner_level = m.team_a.level or ""
     elif m.winner_team_id == m.team_b_id and m.team_b:
         winner_name = m.team_b.name
+        winner_level = m.team_b.level or ""
 
     return render(
         request, db, "match_score.html",
@@ -1094,6 +1103,7 @@ def match_score_page(mid: int, request: Request, db: Session = Depends(get_db),
         team_breakdowns=team_breakdowns,
         section_order=section_order,
         winner_name=winner_name,
+        winner_level=winner_level,
     )
 
 

@@ -50,6 +50,14 @@
     if (!state) return;
     $('ta-name').textContent = state.team_a.name;
     $('tb-name').textContent = state.team_b.name;
+    if ($('ta-level')) {
+      $('ta-level').textContent = state.team_a.level || '';
+      $('ta-level').classList.toggle('hidden', !state.team_a.level);
+    }
+    if ($('tb-level')) {
+      $('tb-level').textContent = state.team_b.level || '';
+      $('tb-level').classList.toggle('hidden', !state.team_b.level);
+    }
     $('ta-score').textContent = state.score_a;
     $('tb-score').textContent = state.score_b;
     $('match-status').textContent = state.status;
@@ -63,7 +71,7 @@
     $('ready-banner').classList.toggle('hidden', !notStarted);
     $('finished-banner').classList.toggle('hidden', !completed);
     if ($('finished-score')) {
-      $('finished-score').textContent = `${state.team_a.name} ${state.score_a} - ${state.score_b} ${state.team_b.name}`;
+      $('finished-score').innerHTML = finishedScoreHtml();
     }
     $('section-controls-card').classList.toggle('hidden', notStarted || completed);
     $('qcard-wrap').classList.toggle('hidden', notStarted || completed);
@@ -595,6 +603,19 @@
 
   function escapeHtml(s) {
     return (s || '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+  }
+
+  function teamTitleHtml(team) {
+    return `<div class="team-title">${escapeHtml(team.name)}</div>` +
+      (team.level ? `<div class="team-subtitle">${escapeHtml(team.level)}</div>` : '');
+  }
+
+  function finishedScoreHtml() {
+    return `<div class="finished-score-teams">
+      <div>${teamTitleHtml(state.team_a)}<strong>${state.score_a}</strong></div>
+      <div class="finished-score-separator">-</div>
+      <div>${teamTitleHtml(state.team_b)}<strong>${state.score_b}</strong></div>
+    </div>`;
   }
 
   async function revealQuestion() {

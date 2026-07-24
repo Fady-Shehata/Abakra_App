@@ -75,7 +75,10 @@
               {% for row in grp.rows %}
               <tr>
                 <td>{{ row.rank }}</td>
-                <td>{{ row.team_name }}</td>
+                <td>
+                  <div class="team-title">{{ row.team_name }}</div>
+                  {% if row.team_level %}<div class="team-subtitle">{{ row.team_level }}</div>{% endif %}
+                </td>
                 <td>{{ row.played }}</td>
                 <td>{{ row.won }}</td>
                 <td>{{ row.drawn }}</td>

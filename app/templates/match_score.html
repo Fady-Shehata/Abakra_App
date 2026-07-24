@@ -6,19 +6,25 @@
 <div class="scoreboard card">
   <div class="team-panel a">
     <div class="name">{{ match.team_a.name if match.team_a else t('team_a') }}</div>
+    {% if match.team_a and match.team_a.level %}<div class="team-subtitle">{{ match.team_a.level }}</div>{% endif %}
     <div class="score">{{ match.score_a }}</div>
   </div>
   <div style="text-align:center">
     <div class="badge info">{{ t('match_status_' + match.status) }}</div>
     <p class="mt muted">{{ match.tournament.name }} · {{ match.round_name or match.stage }}</p>
     {% if winner_name %}
-      <p class="mt"><strong>{{ t('winner') }}:</strong> {{ winner_name }}</p>
+      <div class="mt">
+        <strong>{{ t('winner') }}:</strong>
+        <div class="team-title">{{ winner_name }}</div>
+        {% if winner_level %}<div class="team-subtitle">{{ winner_level }}</div>{% endif %}
+      </div>
     {% elif match.is_draw %}
       <p class="mt"><strong>{{ t('draw') }}</strong></p>
     {% endif %}
   </div>
   <div class="team-panel b">
     <div class="name">{{ match.team_b.name if match.team_b else t('team_b') }}</div>
+    {% if match.team_b and match.team_b.level %}<div class="team-subtitle">{{ match.team_b.level }}</div>{% endif %}
     <div class="score">{{ match.score_b }}</div>
   </div>
 </div>
@@ -30,7 +36,10 @@
     {% set tb = team_breakdowns[side] %}
     <div class="score-breakdown {{ side }}">
       <div class="score-breakdown-head">
-        <strong>{{ tb.name }}</strong>
+        <div>
+          <strong class="team-title">{{ tb.name }}</strong>
+          {% if tb.level %}<div class="team-subtitle">{{ tb.level }}</div>{% endif %}
+        </div>
         <span>{{ tb.score }}</span>
       </div>
       <table>
@@ -85,7 +94,10 @@
         <td>{{ row.section_name }}</td>
         <td>{{ row.category }}</td>
         <td>{{ row.question_code }}</td>
-        <td>{{ row.team_name }}</td>
+        <td>
+          <div class="team-title">{{ row.team_name }}</div>
+          {% if row.team_level %}<div class="team-subtitle">{{ row.team_level }}</div>{% endif %}
+        </td>
         <td>{{ '+' if row.event.delta > 0 else '' }}{{ row.event.delta }}</td>
         <td>{{ row.event.reason }}</td>
       </tr>

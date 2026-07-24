@@ -103,7 +103,9 @@ def compute_group_standings(db: Session, tournament: models.Tournament, group: m
     team_map = {t.id: t for t in db.query(models.Team).filter(models.Team.id.in_(team_ids)).all()}
     for rank, row in enumerate(rows, start=1):
         row["rank"] = rank
-        row["team_name"] = team_map[row["team_id"]].name if row["team_id"] in team_map else "?"
+        team = team_map.get(row["team_id"])
+        row["team_name"] = team.name if team else "?"
+        row["team_level"] = team.level if team and team.level else ""
     return rows
 
 

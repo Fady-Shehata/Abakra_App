@@ -83,7 +83,10 @@
     <tbody>
     {% for team in teams %}
     <tr>
-      <td>{{ team.name }}</td>
+      <td>
+        <div class="team-title">{{ team.name }}</div>
+        {% if team.level %}<div class="team-subtitle">{{ team.level }}</div>{% endif %}
+      </td>
       <td>{% if team.level %}<span class="badge info">{{ team.level }}</span>{% else %}<span class="muted">—</span>{% endif %}</td>
       <td>{{ team.member_count }}</td>
       <td>
