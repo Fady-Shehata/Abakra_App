@@ -14,6 +14,12 @@
   const SPIN_SOUND_URL = '/static/audio/spinning-effect.mp3';
   const SPIN_DURATION_MS = 3000;
   const SPIN_RESULT_POPUP_MS = 2000;
+  const SECTION_VISUALS = {
+    1: '/static/img/section-timed-group.svg',
+    2: '/static/img/section-speed-group.svg',
+    3: '/static/img/section-speed-solo.svg',
+    4: '/static/img/section-lucky-wheel.svg',
+  };
   const timerAudio = makeAudio(TIMER_SOUND_URL, true);
   const spinAudio = makeAudio(SPIN_SOUND_URL, false);
   // Whether the current question's answer text is visible to the host.
@@ -112,10 +118,12 @@
     el.innerHTML = '';
     sectionOrder().forEach((s, i) => {
       const div = document.createElement('div');
-      div.className = 'tab';
+      const secType = sectionType(s);
+      div.className = 'tab tab-card';
       if (state.current_section === s) div.classList.add('active');
       if (state.sections[s] && state.sections[s].completed) div.classList.add('done');
-      div.textContent = `${i + 1}. ${sectionName(s)}`;
+      div.style.setProperty('--section-image', `url("${sectionVisual(secType)}")`);
+      div.innerHTML = `<div class="tab-card-meta">${i + 1}</div><div class="tab-card-title">${escapeHtml(sectionName(s))}</div>`;
       el.appendChild(div);
     });
   }
@@ -135,11 +143,18 @@
     const sec = state.current_section;
     // section start buttons
     const bar = document.createElement('div');
-    bar.className = 'controls';
+    bar.className = 'section-start-grid';
     sectionOrder().forEach((s, i) => {
+      const secType = sectionType(s);
       const done = state.sections[s] && state.sections[s].completed;
-      bar.appendChild(btn(`${L['start_section']} ${i + 1}`, done ? 'ghost' : (sec === s ? 'primary' : ''),
-        () => call('/start-section', { section: s })));
+      const b = document.createElement('button');
+      b.className = 'btn section-start-btn';
+      if (done) b.classList.add('is-done');
+      if (sec === s) b.classList.add('is-active');
+      b.style.setProperty('--section-image', `url("${sectionVisual(secType)}")`);
+      b.innerHTML = `<span class="section-start-index">${i + 1}</span><span class="section-start-label">${L['start_section']} ${i + 1}</span>`;
+      b.onclick = () => call('/start-section', { section: s });
+      bar.appendChild(b);
     });
     el.appendChild(bar);
 
@@ -636,6 +651,10 @@
 
   function sectionName(sectionId) {
     return (state.section_names || {})[sectionId] || `#${sectionId}`;
+  }
+
+  function sectionVisual(secType) {
+    return SECTION_VISUALS[Number(secType)] || SECTION_VISUALS[1];
   }
 
   // poll for external changes

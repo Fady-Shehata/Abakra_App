@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-label="Timed Group Section">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#173d72"/>
+      <stop offset="1" stop-color="#0f223e"/>
+    </linearGradient>
+    <radialGradient id="light" cx="0.5" cy="0.08" r="0.9">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.42"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="table" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#332664"/>
+      <stop offset="1" stop-color="#1f1f4d"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#ffd85e"/>
+      <stop offset="1" stop-color="#f1a91a"/>
+    </linearGradient>
+    <filter id="drop" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.34"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="675" fill="url(#bg)"/>
+  <rect width="1200" height="675" fill="url(#light)"/>
+
+  <g opacity="0.3">
+    <circle cx="250" cy="220" r="16" fill="#9ecfff"/>
+    <circle cx="960" cy="210" r="18" fill="#9ecfff"/>
+    <path d="M905 160l8 18 18 8-18 8-8 18-8-18-18-8 18-8z" fill="#b7d9ff"/>
+    <path d="M282 178l7 15 15 7-15 7-7 15-7-15-15-7 15-7z" fill="#cab3ff"/>
+  </g>
+
+  <g filter="url(#drop)">
+    <ellipse cx="600" cy="582" rx="360" ry="84" fill="url(#table)"/>
+  </g>
+
+  <g transform="translate(600 140)">
+    <path d="M-172 20c10-48 58-68 103-50 26-48 92-67 143-41 39-27 96-22 132 18 34-9 72 13 80 49 5 22-1 45-17 61h-424c-15-11-22-27-17-37z" fill="#d7ebff"/>
+    <path d="M-150 44h382c-10 20-31 33-55 33h-272c-24 0-45-13-55-33z" fill="#b6dcff"/>
+    <g transform="translate(-18 8)">
+      <circle cx="0" cy="20" r="52" fill="#ffc73f"/>
+      <path d="M0-44v-16M46-24l10-12M62 20h16M46 64l10 12M0 84v16M-46 64l-10 12M-62 20h-16M-46-24l-10-12" stroke="#f3ad0c" stroke-width="8" stroke-linecap="round"/>
+      <path d="M-15 8c0-12 9-22 21-22s21 10 21 22c0 8-3 14-10 19v10h-22V27c-7-5-10-11-10-19z" fill="#fff2be"/>
+      <rect x="-12" y="40" width="24" height="16" rx="5" fill="#314878"/>
+    </g>
+  </g>
+
+  <g transform="translate(222 258)">
+    <circle cx="94" cy="54" r="54" fill="#1f3473"/>
+    <path d="M34 186c8-50 39-73 83-73 43 0 78 23 90 73z" fill="#1f4f98"/>
+    <circle cx="79" cy="52" r="8" fill="#ffffff"/>
+    <circle cx="116" cy="52" r="8" fill="#ffffff"/>
+    <path d="M84 82c12 10 25 10 37 0" stroke="#f5dcb0" stroke-width="6" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <g transform="translate(430 250)">
+    <circle cx="92" cy="56" r="55" fill="#7d3d26"/>
+    <path d="M34 188c8-52 39-74 84-74 44 0 80 22 91 74z" fill="#7d50c8"/>
+    <circle cx="78" cy="54" r="8" fill="#ffffff"/>
+    <circle cx="115" cy="54" r="8" fill="#ffffff"/>
+    <path d="M84 84c12 10 25 10 37 0" stroke="#f4d2a0" stroke-width="6" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <g transform="translate(616 246)">
+    <circle cx="94" cy="56" r="56" fill="#4e2e1b"/>
+    <path d="M34 188c8-54 39-76 86-76 45 0 81 22 92 76z" fill="#2f8c54"/>
+    <circle cx="80" cy="54" r="8" fill="#ffffff"/>
+    <circle cx="117" cy="54" r="8" fill="#ffffff"/>
+    <path d="M86 84c12 10 24 10 36 0" stroke="#f2cf9f" stroke-width="6" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <g transform="translate(806 250)">
+    <circle cx="94" cy="54" r="54" fill="#2f2144"/>
+    <path d="M34 188c8-52 39-74 84-74 44 0 80 22 91 74z" fill="#c68221"/>
+    <circle cx="78" cy="52" r="8" fill="#ffffff"/>
+    <circle cx="115" cy="52" r="8" fill="#ffffff"/>
+    <circle cx="66" cy="53" r="26" fill="none" stroke="#96b8ff" stroke-width="6"/>
+    <circle cx="126" cy="53" r="26" fill="none" stroke="#96b8ff" stroke-width="6"/>
+    <path d="M92 53h8" stroke="#96b8ff" stroke-width="6"/>
+    <path d="M83 82c12 10 25 10 37 0" stroke="#f4d2a0" stroke-width="6" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <g transform="translate(600 548)" filter="url(#drop)">
+    <path d="M-82-34h52c14 0 24 10 24 24v7h16c14 0 24 10 24 24v18c0 14-10 24-24 24h-16v7c0 14-10 24-24 24h-52c-14 0-24-10-24-24v-7h-16c-14 0-24-10-24-24V21c0-14 10-24 24-24h16v-7c0-14 10-24 24-24z" fill="url(#gold)" stroke="#fff0bd" stroke-width="6"/>
+  </g>
+
+  <g transform="translate(258 190)">
+    <circle cx="0" cy="0" r="56" fill="#7d50c8"/>
+    <text x="0" y="22" font-family="Segoe UI, Tahoma" font-size="86" font-weight="900" text-anchor="middle" fill="#ffffff">?</text>
+  </g>
+
+  <g transform="translate(946 186)">
+    <circle cx="0" cy="0" r="58" fill="#2686e2"/>
+    <path d="M-14-24h28v16h16v28h-16v16h-28V20h-16V-8h16z" fill="#ffffff"/>
+  </g>
+</svg>
