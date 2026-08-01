@@ -9,7 +9,10 @@
   let state = null;
   let timer = { remaining: 30, duration: 30, running: false, handle: null, key: null };
   const NORMAL_TIMER_SECONDS = 30;
+  const QUICK_TIMER_SECONDS = 7;
   const REBOUND_TIMER_SECONDS = 5;
+  // Section types whose questions use the short/quick timer (buzzer & individual).
+  const QUICK_SECTION_TYPES = new Set([2, 3]);
   const TIMER_SOUND_URL = '/static/audio/timer-effect.mp3';
   const SPIN_SOUND_URL = '/static/audio/spinning-effect.mp3';
   const SPIN_DURATION_MS = 3000;
@@ -182,16 +185,12 @@
     const title = document.createElement('div');
     title.className = 'section-controls-title';
     title.textContent = sectionName(state.current_section);
-    const subtitle = document.createElement('div');
-    subtitle.className = 'section-controls-subtitle';
-    subtitle.textContent = sectionHint(secType, busy);
     box.appendChild(title);
-    box.appendChild(subtitle);
     return box;
   }
 
   function sectionHint(secType, busy) {
-    if (busy) return L['reveal'];
+    if (busy) return '';
     if (secType === 1) return `${state.team_a.name} vs ${state.team_b.name}`;
     if (secType === 2) return 'Fastest team takes the question';
     if (secType === 3) return 'One player per team, fastest answer wins';
@@ -208,7 +207,8 @@
     ].forEach(({ key, team, panelClass }) => {
       const panel = document.createElement('div');
       panel.className = `team-section-panel ${panelClass}`;
-      panel.innerHTML = `<div class="team-section-name">${escapeHtml(team.name)}</div><div class="team-section-caption">Choose a category for this team</div>`;
+      const levelHtml = team.level ? `<div class="team-section-level">${escapeHtml(team.level)}</div>` : '';
+      panel.innerHTML = `<div class="team-section-name">${escapeHtml(team.name)}</div>${levelHtml}`;
       const list = document.createElement('div');
       list.className = 'team-category-list';
       state.remaining.forEach((c) => {
@@ -269,14 +269,15 @@
       return;
     }
     const c = cur.content || {};
-    // Reset the local "show answer" gate whenever we move to a new question
-    // or the question is not yet revealed.
-    const qKey = `${cur.section || ''}:${c.code || ''}:${cur.phase || ''}`;
-    if (cur.phase === 'selected') { showAnswer = false; }
-    else if (qKey !== lastQKey && cur.phase === 'revealed') { showAnswer = false; }
-    // Once the host has scored the question, phase moves past 'revealed'
-    // (e.g. rebound_open, done). In those phases the answer is safe to show.
-    const answerUnlocked = showAnswer || (cur.phase && cur.phase !== 'selected' && cur.phase !== 'revealed');
+    // Reset the local "show answer" gate only when a brand new question is
+    // selected. We deliberately do NOT reset on phase changes (e.g. moving
+    // to rebound_open) so the host keeps whatever they explicitly toggled.
+    const qKey = `${cur.section || ''}:${cur.question_id || c.code || ''}`;
+    if (cur.phase === 'selected' || qKey !== lastQKey) { showAnswer = false; }
+    // The answer text is ONLY visible after the host explicitly clicks the
+    // Show Answer button. It is never auto-revealed by timer expiry or by
+    // phase transitions.
+    const answerUnlocked = showAnswer;
     lastQKey = qKey;
     if (showTimer) {
       ensureTimerForCurrentQuestion(cur, c);
@@ -299,52 +300,173 @@
       ctrl.appendChild(btn(L['skip'], 'ghost', () => call('/mark', { action: 'skip' })));
       return;
     }
-    if (cur.phase === 'revealed' && !showAnswer) {
-      // Host can force-reveal the answer any time before scoring.
-      ctrl.appendChild(btn(L['show_answer'] || 'Show Answer', 'primary', () => { showAnswer = true; render(); }));
-    }
     if (cur.phase === 'revealed') {
-      if (secType === 5) {
-        ctrl.appendChild(btn(`${L['father_a']} (+10)`, 'success', () => call('/mark', { action: 'father_a' })));
-        ctrl.appendChild(btn(`${L['father_b']} (+10)`, 'success', () => call('/mark', { action: 'father_b' })));
-        ctrl.appendChild(btn(L['no_answer'], 'ghost', () => call('/mark', { action: 'father_none' })));
-      } else if (secType === 1 || secType === 4) {
-        // assigned-team sections: correct on the assigned team only
-        const team = cur.team;
-        ctrl.appendChild(btn(L[team === 'a' ? 'a_correct' : 'b_correct'] + ' (+5)', 'success',
-          () => call('/mark', { action: team === 'a' ? 'a_correct' : 'b_correct' })));
-        ctrl.appendChild(btn(L['wrong'] + ' → ' + L['open_rebound'], 'danger', () => call('/mark', { action: 'wrong' })));
-      } else if (secType === 2) {
-        // buzzer decides who answers; both correct buttons available
-        ctrl.appendChild(btn(L['a_correct'] + ' (+5)', 'success', () => call('/mark', { action: 'a_correct' })));
-        ctrl.appendChild(btn(L['b_correct'] + ' (+5)', 'success', () => call('/mark', { action: 'b_correct' })));
-        ctrl.appendChild(btn(L['wrong'] + ' → ' + L['open_rebound'], 'danger', () => call('/mark', { action: 'wrong' })));
-      } else if (secType === 3) {
-        // individual: no rebound
-        ctrl.appendChild(btn(L['a_correct'] + ' (+5)', 'success', () => call('/mark', { action: 'a_correct' })));
-        ctrl.appendChild(btn(L['b_correct'] + ' (+5)', 'success', () => call('/mark', { action: 'b_correct' })));
-        ctrl.appendChild(btn(L['wrong'] + ' (0/0)', 'danger', () => call('/mark', { action: 'wrong' })));
-      }
-      ctrl.appendChild(btn(L['skip'], 'ghost', () => call('/mark', { action: 'skip' })));
-      ctrl.appendChild(btn(L['invalidate'], 'ghost', async () => {
-        const reason = (await window.SmartPrompt(L['invalidate_reason'])) || '';
-        // Cancel closes the dialog without a call.
-        if (reason === null) return;
-        call('/mark', { action: 'invalidate', reason });
-      }));
+      ctrl.appendChild(buildAnswerActionsBar(cur, secType));
       return;
     }
     if (cur.phase === 'rebound_open') {
-      ctrl.appendChild(btn(L['rebound_correct'] + ' (+10)', 'success', () => call('/mark', { action: 'rebound_correct' })));
-      ctrl.appendChild(btn(L['rebound_wrong'] + ' (0)', 'danger', () => call('/mark', { action: 'rebound_wrong' })));
+      ctrl.appendChild(buildReboundActionsBar(cur, secType));
       return;
     }
   }
 
+  // ---------- action bar builders ----------
+  function actionShowAnswerButton() {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'answer-action-reveal';
+    b.innerHTML = `<span class="aa-title">${escapeHtml(L['show_answer'] || 'Show Answer')}</span>`;
+    b.onclick = () => { showAnswer = true; render(); };
+    return b;
+  }
+
+  function actionTeamScoreButton(teamKey, team, points, onClick) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `answer-team-btn team-${teamKey}`;
+    const level = team && team.level ? `<span class="aa-subtitle">${escapeHtml(team.level)}</span>` : '';
+    b.innerHTML = `
+      <span class="aa-team-label">
+        <span class="aa-title">${escapeHtml(team ? team.name : '')}</span>
+        ${level}
+      </span>
+      <span class="aa-badge">+${points}</span>`;
+    b.onclick = onClick;
+    return b;
+  }
+
+  function actionSecondaryButton(label, kind, onClick) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `answer-action-secondary ${kind || ''}`.trim();
+    b.textContent = label;
+    b.onclick = onClick;
+    return b;
+  }
+
+  function buildAnswerActionsBar(cur, secType) {
+    const bar = document.createElement('div');
+    bar.className = `answer-actions section-type-${secType}`;
+
+    if (!showAnswer) {
+      const primary = document.createElement('div');
+      primary.className = 'answer-actions-row aa-row-primary';
+      primary.appendChild(actionShowAnswerButton());
+      bar.appendChild(primary);
+    }
+
+    const teamRow = document.createElement('div');
+    teamRow.className = 'answer-actions-row aa-row-teams';
+
+    if (secType === 5) {
+      // Father asks: 10 points, both teams available
+      teamRow.appendChild(actionTeamScoreButton('a', state.team_a, 10,
+        () => call('/mark', { action: 'father_a' })));
+      teamRow.appendChild(actionTeamScoreButton('b', state.team_b, 10,
+        () => call('/mark', { action: 'father_b' })));
+      bar.appendChild(teamRow);
+
+      const wrongRow = document.createElement('div');
+      wrongRow.className = 'answer-actions-row aa-row-wrong';
+      wrongRow.appendChild(actionSecondaryButton(L['no_answer'], 'aa-wrong',
+        () => call('/mark', { action: 'father_none' })));
+      bar.appendChild(wrongRow);
+    } else if (secType === 1 || secType === 4) {
+      // Assigned-team sections: only the assigned team can score
+      const teamKey = cur.team;
+      const team = teamKey === 'a' ? state.team_a : (teamKey === 'b' ? state.team_b : null);
+      if (team) {
+        teamRow.classList.add('aa-row-single');
+        teamRow.appendChild(actionTeamScoreButton(teamKey, team, 5,
+          () => call('/mark', { action: teamKey === 'a' ? 'a_correct' : 'b_correct' })));
+        bar.appendChild(teamRow);
+      }
+      const wrongRow = document.createElement('div');
+      wrongRow.className = 'answer-actions-row aa-row-wrong';
+      wrongRow.appendChild(actionSecondaryButton(
+        `${L['wrong']} → ${L['open_rebound']}`, 'aa-wrong',
+        () => call('/mark', { action: 'wrong' })));
+      bar.appendChild(wrongRow);
+    } else if (secType === 2 || secType === 3) {
+      // Quick sections: either team can score
+      teamRow.appendChild(actionTeamScoreButton('a', state.team_a, 5,
+        () => call('/mark', { action: 'a_correct' })));
+      teamRow.appendChild(actionTeamScoreButton('b', state.team_b, 5,
+        () => call('/mark', { action: 'b_correct' })));
+      bar.appendChild(teamRow);
+
+      const wrongRow = document.createElement('div');
+      wrongRow.className = 'answer-actions-row aa-row-wrong';
+      wrongRow.appendChild(actionSecondaryButton(
+        `${L['wrong']} → ${L['open_rebound']}`, 'aa-wrong',
+        () => call('/mark', { action: 'wrong' })));
+      bar.appendChild(wrongRow);
+    }
+
+    const misc = document.createElement('div');
+    misc.className = 'answer-actions-row aa-row-misc';
+    misc.appendChild(actionSecondaryButton(L['skip'], 'aa-skip',
+      () => call('/mark', { action: 'skip' })));
+    misc.appendChild(actionSecondaryButton(L['invalidate'], 'aa-invalidate', async () => {
+      const reason = (await window.SmartPrompt(L['invalidate_reason'])) || '';
+      if (reason === null) return;
+      call('/mark', { action: 'invalidate', reason });
+    }));
+    bar.appendChild(misc);
+
+    return bar;
+  }
+
+  function buildReboundActionsBar(cur, secType) {
+    const bar = document.createElement('div');
+    bar.className = `answer-actions is-rebound section-type-${secType}`;
+
+    if (!showAnswer) {
+      const primary = document.createElement('div');
+      primary.className = 'answer-actions-row aa-row-primary';
+      primary.appendChild(actionShowAnswerButton());
+      bar.appendChild(primary);
+    }
+
+    const teamRow = document.createElement('div');
+    teamRow.className = 'answer-actions-row aa-row-teams';
+
+    if (secType === 1 || secType === 4) {
+      // Assigned-team sections: rebound automatically goes to the opponent.
+      const origKey = cur.team === 'a' ? 'a' : (cur.team === 'b' ? 'b' : null);
+      const oppKey = origKey === 'a' ? 'b' : 'a';
+      const oppTeam = oppKey === 'a' ? state.team_a : state.team_b;
+      teamRow.classList.add('aa-row-single');
+      teamRow.appendChild(actionTeamScoreButton(oppKey, oppTeam, 10,
+        () => call('/mark', { action: 'rebound_correct' })));
+      bar.appendChild(teamRow);
+    } else {
+      // Quick sections (2 & 3): host explicitly picks which team gets the rebound.
+      teamRow.appendChild(actionTeamScoreButton('a', state.team_a, 10,
+        () => call('/mark', { action: 'rebound_correct', team: 'a' })));
+      teamRow.appendChild(actionTeamScoreButton('b', state.team_b, 10,
+        () => call('/mark', { action: 'rebound_correct', team: 'b' })));
+      bar.appendChild(teamRow);
+    }
+
+    const wrongRow = document.createElement('div');
+    wrongRow.className = 'answer-actions-row aa-row-wrong';
+    wrongRow.appendChild(actionSecondaryButton(
+      `${L['rebound_wrong']} (0)`, 'aa-wrong',
+      () => call('/mark', { action: 'rebound_wrong' })));
+    bar.appendChild(wrongRow);
+
+    return bar;
+  }
+
   function renderQuestionPanel(cur, c, answerUnlocked) {
     const kind = questionKind(c);
-    const teamName = cur.team ? (cur.team === 'a' ? state.team_a.name : state.team_b.name) : '';
-    const meta = [cur.category_name, c.code, teamName].filter(Boolean).map(escapeHtml).join(' · ');
+    let teamMeta = '';
+    if (cur.team === 'a' || cur.team === 'b') {
+      const t = cur.team === 'a' ? state.team_a : state.team_b;
+      teamMeta = t.level ? `${t.name} (${t.level})` : t.name;
+    }
+    const meta = [cur.category_name, c.code, teamMeta].filter(Boolean).map(escapeHtml).join(' · ');
     const panelClasses = ['question-panel', `question-kind-${kind}`];
     if (cur.phase === 'selected') panelClasses.push('is-waiting');
     if (cur.phase === 'rebound_open') panelClasses.push('is-rebound');
@@ -502,7 +624,11 @@
 
   // ---------- timer (client, host-controlled) ----------
   function timerDurationFor(cur) {
-    return cur && cur.phase === 'rebound_open' ? REBOUND_TIMER_SECONDS : NORMAL_TIMER_SECONDS;
+    if (!cur) return NORMAL_TIMER_SECONDS;
+    if (cur.phase === 'rebound_open') return REBOUND_TIMER_SECONDS;
+    const st = Number(cur.section_type || sectionType(cur.section));
+    if (QUICK_SECTION_TYPES.has(st)) return QUICK_TIMER_SECONDS;
+    return NORMAL_TIMER_SECONDS;
   }
 
   function timerKeyFor(cur, c) {
@@ -546,11 +672,8 @@
       updateTimerDisplay();
       if (timer.remaining <= 0) {
         stopTimer();
-        // Timer expired: unlock the answer for the host automatically.
-        if (state.current && state.current.phase !== 'selected' && !showAnswer) {
-          showAnswer = true;
-          render();
-        }
+        // Timer expiry does NOT auto-reveal the answer any more; the host
+        // must explicitly click "Show Answer" to make the answer visible.
       }
     }, 1000);
   }

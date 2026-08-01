@@ -172,7 +172,7 @@ def mark(mid: int, request: Request, payload: dict = Body(...), db: Session = De
         elif action == "open_rebound":
             ge.open_rebound(db, s, hid)
         elif action == "rebound_correct":
-            ge.rebound_correct(db, s, hid)
+            ge.rebound_correct(db, s, hid, team=payload.get("team"))
         elif action == "rebound_wrong":
             ge.rebound_wrong(db, s, hid)
         elif action == "father_a":

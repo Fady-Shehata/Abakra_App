@@ -26,7 +26,9 @@ SECTION_NAMES = {
 }
 
 # section -> whether a rebound is permitted after a wrong original answer
-SECTION_REBOUND = {1: True, 2: True, 3: False, 4: True, 5: False}
+# Section 3 (individual) also supports rebound now: the host picks which team
+# is awarded the rebound points from the frontend.
+SECTION_REBOUND = {1: True, 2: True, 3: True, 4: True, 5: False}
 SECTION_TIMED = {1: True, 2: False, 3: False, 4: False, 5: False}
 SECTION_BUZZER = {1: False, 2: True, 3: True, 4: False, 5: False}
 

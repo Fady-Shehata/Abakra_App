@@ -63,7 +63,9 @@ def test_failed_rebound_is_zero(db_session):
     assert m2.score_b == 0
 
 
-def test_individual_no_rebound(db_session):
+def test_individual_rebound_awards_chosen_team(db_session):
+    # Section 3 (individual) supports rebound: the host chooses which team
+    # is awarded the +10 rebound points.
     _clear_categories(db_session)
     cat = make_category(db_session, "كتاب لاهوت", True, True)
     src = make_source(db_session, "s4.xlsx")
@@ -76,8 +78,12 @@ def test_individual_no_rebound(db_session):
     ge.mark_wrong(db_session, m.session, None)
 
     st = ge.load_state(m.session)
-    assert st["current"]["phase"] == "done"
-    assert m.score_a == 0 and m.score_b == 0
+    assert st["current"]["phase"] == "rebound_open"
+
+    ge.rebound_correct(db_session, m.session, None, team="b")
+    m2 = db_session.get(models.Match, m.id)
+    assert m2.score_a == 0
+    assert m2.score_b == 10
 
 
 def test_father_asks_awards_10(db_session):

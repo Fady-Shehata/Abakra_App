@@ -336,17 +336,27 @@ def open_rebound(db: Session, session: models.GameSession, host_id: Optional[int
     return state
 
 
-def rebound_correct(db: Session, session: models.GameSession, host_id: Optional[int]) -> dict:
-    """Opponent answers rebound correctly -> 10 points to opponent, 0 original."""
+def rebound_correct(db: Session, session: models.GameSession, host_id: Optional[int],
+                    team: Optional[str] = None) -> dict:
+    """Rebound answered correctly -> 10 points.
+
+    If ``team`` is provided ("a" or "b"), award the rebound points directly to
+    that team. This is used by quick sections (2 and 3) where the host chooses
+    which team receives the rebound. Otherwise, fall back to the automatic
+    opponent-of-original-team behaviour used by sections 1 and 4.
+    """
     state = load_state(session)
     cur = state.get("current")
     if not cur or cur["phase"] != "rebound_open":
         raise GameError("invalid_transition")
-    orig = _original_team(cur)
-    opponent = "b" if orig == "a" else "a"
+    if team in ("a", "b"):
+        target = team
+    else:
+        orig = _original_team(cur)
+        target = "b" if orig == "a" else "a"
     match = session.match
     pts = scoring.REBOUND_POINTS
-    _add_score(db, match, opponent, pts, "rebound_correct", cur["section"], cur["question_id"], host_id)
+    _add_score(db, match, target, pts, "rebound_correct", cur["section"], cur["question_id"], host_id)
     _finish_current(db, session, state, "wrong", "correct", pts)
     reset_buzzer_inline(state)
     save_state(db, session, state)
