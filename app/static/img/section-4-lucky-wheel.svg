@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-label="Lucky Roulette Section">
+  <defs>
+    <radialGradient id="bg" cx="0.5" cy="0.2" r="0.9">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ececf7"/>
+    </radialGradient>
+    <linearGradient id="table" x1="0" x2="1" y1="0" y2="0">
+      <stop offset="0" stop-color="#33286d"/>
+      <stop offset="1" stop-color="#1f1f54"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.22"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="675" rx="44" fill="url(#bg)"/>
+  <g opacity="0.34">
+    <circle cx="140" cy="208" r="10" fill="#a9cbff"/>
+    <circle cx="322" cy="134" r="10" fill="#ffb54a"/>
+    <circle cx="1000" cy="160" r="10" fill="#ba90ff"/>
+    <circle cx="1072" cy="228" r="10" fill="#ffb54a"/>
+    <path d="M248 174l10 22 22 10-22 10-10 22-10-22-22-10 22-10z" fill="#b68cff"/>
+    <path d="M932 192l10 22 22 10-22 10-10 22-10-22-22-10 22-10z" fill="#b68cff"/>
+  </g>
+  <g opacity="0.18" stroke="#a8d0ff" stroke-width="16" stroke-linecap="round">
+    <path d="M510 140l-38-90"/><path d="M600 124v-88"/><path d="M688 142l40-88"/>
+  </g>
+  <g filter="url(#shadow)">
+    <ellipse cx="600" cy="578" rx="402" ry="88" fill="url(#table)"/>
+  </g>
+  <g transform="translate(210 278)">
+    <circle cx="92" cy="56" r="60" fill="#17285f"/>
+    <path d="M26 214c10-58 46-84 102-84 52 0 92 26 106 84z" fill="#1c57af"/>
+    <circle cx="78" cy="54" r="9" fill="#fff"/><circle cx="120" cy="54" r="9" fill="#fff"/>
+    <path d="M84 90c14 10 29 10 43 0" stroke="#f5d5a7" stroke-width="6" fill="none" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(388 304)">
+    <circle cx="92" cy="56" r="58" fill="#85401d"/>
+    <path d="M30 194c10-54 44-78 98-78 50 0 88 24 100 78z" fill="#8442d7"/>
+    <circle cx="78" cy="54" r="9" fill="#fff"/><circle cx="120" cy="54" r="9" fill="#fff"/>
+    <path d="M84 90c14 10 29 10 43 0" stroke="#f5d5a7" stroke-width="6" fill="none" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(704 278)">
+    <circle cx="92" cy="56" r="60" fill="#5d341e"/>
+    <path d="M26 214c10-58 46-84 102-84 52 0 92 26 106 84z" fill="#2f9d61"/>
+    <circle cx="78" cy="54" r="9" fill="#fff"/><circle cx="120" cy="54" r="9" fill="#fff"/>
+    <path d="M84 90c14 10 29 10 43 0" stroke="#f5d5a7" stroke-width="6" fill="none" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(890 302)">
+    <circle cx="92" cy="56" r="58" fill="#392351"/>
+    <path d="M30 194c10-54 44-78 98-78 50 0 88 24 100 78z" fill="#dc8b1e"/>
+    <circle cx="66" cy="54" r="24" fill="none" stroke="#88a9ff" stroke-width="6"/>
+    <circle cx="124" cy="54" r="24" fill="none" stroke="#88a9ff" stroke-width="6"/>
+    <path d="M92 54h8" stroke="#88a9ff" stroke-width="6"/>
+    <circle cx="78" cy="54" r="9" fill="#fff"/><circle cx="120" cy="54" r="9" fill="#fff"/>
+    <path d="M82 90c14 10 29 10 43 0" stroke="#f5d5a7" stroke-width="6" fill="none" stroke-linecap="round"/>
+  </g>
+  <g transform="translate(600 330)" filter="url(#shadow)">
+    <circle cx="0" cy="0" r="194" fill="#f5b521" stroke="#c57a00" stroke-width="8"/>
+    <circle cx="0" cy="0" r="172" fill="#fff1bf"/>
+    <path d="M0 0L0 -172A172 172 0 0 1 122 -122Z" fill="#7d39c7"/>
+    <path d="M0 0L122 -122A172 172 0 0 1 166 -30Z" fill="#206de8"/>
+    <path d="M0 0L166 -30A172 172 0 0 1 118 126Z" fill="#2e9d61"/>
+    <path d="M0 0L118 126A172 172 0 0 1 -16 171Z" fill="#f1b322"/>
+    <path d="M0 0L-16 171A172 172 0 0 1 -138 101Z" fill="#6a2fd6"/>
+    <path d="M0 0L-138 101A172 172 0 0 1 -149 -86Z" fill="#ff710e"/>
+    <path d="M0 0L-149 -86A172 172 0 0 1 0 -172Z" fill="#ef4379"/>
+    <circle cx="0" cy="0" r="34" fill="#f5b521" stroke="#e39a10" stroke-width="5"/>
+    <circle cx="0" cy="0" r="10" fill="#ffdd7d"/>
+    <path d="M0 -214l22 38h-44z" fill="#d9531e" stroke="#8d2700" stroke-width="4"/>
+    <circle cx="0" cy="-204" r="10" fill="#ffb14c"/>
+    <g fill="#fff3cb">
+      <circle cx="0" cy="-184" r="4"/><circle cx="64" cy="-172" r="4"/><circle cx="120" cy="-126" r="4"/>
+      <circle cx="164" cy="-24" r="4"/><circle cx="150" cy="80" r="4"/><circle cx="84" cy="150" r="4"/>
+      <circle cx="-20" cy="183" r="4"/><circle cx="-118" cy="134" r="4"/><circle cx="-168" cy="42" r="4"/><circle cx="-156" cy="-72" r="4"/>
+    </g>
+    <rect x="-64" y="188" width="128" height="42" rx="12" fill="#4a2f76"/>
+    <rect x="-90" y="224" width="180" height="34" rx="12" fill="#523168"/>
+  </g>
+</svg>
