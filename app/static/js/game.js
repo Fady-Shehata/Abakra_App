@@ -147,42 +147,108 @@
     if (!sec || !state.sections[sec]) return;
     const busy = state.current && state.current.phase && state.current.phase !== 'done';
     const secType = sectionType(sec);
+    const shell = document.createElement('section');
+    shell.className = `section-controls-shell section-type-${secType}`;
+    shell.appendChild(buildSectionHeader(secType, busy));
 
-    if (secType === 4) { renderWheel(el, busy, sec); return; }
+    if (secType === 4) {
+      renderWheel(shell, busy, sec);
+      shell.appendChild(buildSectionFooter(sec));
+      el.appendChild(shell);
+      return;
+    }
     if (secType === 5) {
       const b = btn(`${L['reveal']} — ${sectionName(sec)}`, 'primary',
         () => call('/select', { section: sec, category_id: state.special_category_id, team: null }), busy);
-      el.appendChild(b);
+      const launch = document.createElement('div');
+      launch.className = 'section-launch-row';
+      launch.appendChild(b);
+      shell.appendChild(launch);
+      shell.appendChild(buildSectionFooter(sec));
+      el.appendChild(shell);
       return;
     }
 
-    // Regular question sections: section type 1 needs team choice.
-    const wrap = document.createElement('div');
-    wrap.className = 'cat-chips mt';
-    state.remaining.forEach(c => {
-      if (secType === 1) {
-        ['a', 'b'].forEach(team => {
-          const chip = mkChip(`${c.name} — ${team === 'a' ? state.team_a.name : state.team_b.name} (${c.remaining})`,
-            c.remaining <= 0 || busy, () => call('/select', { section: sec, category_id: c.id, team }));
-          wrap.appendChild(chip);
-        });
-      } else {
-        const chip = mkChip(`${c.name} (${c.remaining})`, c.remaining <= 0 || busy,
-          () => call('/select', { section: sec, category_id: c.id, team: null }));
-        wrap.appendChild(chip);
-      }
-    });
-    el.appendChild(wrap);
+    if (secType === 1) shell.appendChild(buildTeamSplitControls(sec, busy));
+    else shell.appendChild(buildSharedCategoryControls(sec, secType, busy));
 
-    el.appendChild(btn(L['finish_section'], 'ghost mt', () => call('/finish-section', { section: sec })));
+    shell.appendChild(buildSectionFooter(sec));
+    el.appendChild(shell);
   }
 
-  function mkChip(text, disabled, onclick) {
-    const d = document.createElement('div');
-    d.className = 'cat-chip' + (disabled ? ' empty' : '');
-    d.textContent = text;
-    if (!disabled) d.onclick = onclick;
-    return d;
+  function buildSectionHeader(secType, busy) {
+    const box = document.createElement('div');
+    box.className = 'section-controls-head';
+    const title = document.createElement('div');
+    title.className = 'section-controls-title';
+    title.textContent = sectionName(state.current_section);
+    const subtitle = document.createElement('div');
+    subtitle.className = 'section-controls-subtitle';
+    subtitle.textContent = sectionHint(secType, busy);
+    box.appendChild(title);
+    box.appendChild(subtitle);
+    return box;
+  }
+
+  function sectionHint(secType, busy) {
+    if (busy) return L['reveal'];
+    if (secType === 1) return `${state.team_a.name} vs ${state.team_b.name}`;
+    if (secType === 2) return 'Fastest team takes the question';
+    if (secType === 3) return 'One player per team, fastest answer wins';
+    if (secType === 4) return 'Spin the wheel to choose the next category';
+    return L['remaining'];
+  }
+
+  function buildTeamSplitControls(sec, busy) {
+    const wrap = document.createElement('div');
+    wrap.className = 'section-team-grid';
+    [
+      { key: 'a', team: state.team_a, panelClass: 'team-a' },
+      { key: 'b', team: state.team_b, panelClass: 'team-b' },
+    ].forEach(({ key, team, panelClass }) => {
+      const panel = document.createElement('div');
+      panel.className = `team-section-panel ${panelClass}`;
+      panel.innerHTML = `<div class="team-section-name">${escapeHtml(team.name)}</div><div class="team-section-caption">Choose a category for this team</div>`;
+      const list = document.createElement('div');
+      list.className = 'team-category-list';
+      state.remaining.forEach((c) => {
+        list.appendChild(mkChip(c.name, c.remaining, c.remaining <= 0 || busy,
+          () => call('/select', { section: sec, category_id: c.id, team: key })));
+      });
+      panel.appendChild(list);
+      wrap.appendChild(panel);
+    });
+    return wrap;
+  }
+
+  function buildSharedCategoryControls(sec, secType, busy) {
+    const wrap = document.createElement('div');
+    wrap.className = secType === 3 ? 'section-duel-grid' : 'section-category-grid';
+    state.remaining.forEach((c) => {
+      wrap.appendChild(mkChip(c.name, c.remaining, c.remaining <= 0 || busy,
+        () => call('/select', { section: sec, category_id: c.id, team: null }), secType === 3 ? 'duel' : 'shared'));
+    });
+    return wrap;
+  }
+
+  function buildSectionFooter(sec) {
+    const footer = document.createElement('div');
+    footer.className = 'section-controls-footer';
+    footer.appendChild(btn(L['finish_section'], 'ghost', () => call('/finish-section', { section: sec })));
+    return footer;
+  }
+
+  function mkChip(name, remaining, disabled, onclick, variant) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `cat-chip ${variant ? `cat-chip-${variant}` : ''}`.trim();
+    if (disabled) {
+      b.classList.add('empty');
+      b.disabled = true;
+    }
+    b.innerHTML = `<span class="cat-chip-name">${escapeHtml(name)}</span><span class="cat-chip-count">${remaining}</span>`;
+    if (!disabled) b.onclick = onclick;
+    return b;
   }
 
   // ---------- question panel ----------
