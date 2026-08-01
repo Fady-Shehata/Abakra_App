@@ -120,10 +120,13 @@
       const div = document.createElement('div');
       const secType = sectionType(s);
       div.className = 'tab tab-card';
+      const done = state.sections[s] && state.sections[s].completed;
       if (state.current_section === s) div.classList.add('active');
-      if (state.sections[s] && state.sections[s].completed) div.classList.add('done');
+      if (done) div.classList.add('done');
+      else div.classList.add('clickable');
       div.style.setProperty('--section-image', `url("${sectionVisual(secType)}")`);
       div.innerHTML = `<div class="tab-card-meta">${i + 1}</div><div class="tab-card-title">${escapeHtml(sectionName(s))}</div>`;
+      if (!done) div.onclick = () => call('/start-section', { section: s });
       el.appendChild(div);
     });
   }
@@ -141,23 +144,6 @@
     const el = $('section-controls');
     el.innerHTML = '';
     const sec = state.current_section;
-    // section start buttons
-    const bar = document.createElement('div');
-    bar.className = 'section-start-grid';
-    sectionOrder().forEach((s, i) => {
-      const secType = sectionType(s);
-      const done = state.sections[s] && state.sections[s].completed;
-      const b = document.createElement('button');
-      b.className = 'btn section-start-btn';
-      if (done) b.classList.add('is-done');
-      if (sec === s) b.classList.add('is-active');
-      b.style.setProperty('--section-image', `url("${sectionVisual(secType)}")`);
-      b.innerHTML = `<span class="section-start-index">${i + 1}</span><span class="section-start-label">${L['start_section']} ${i + 1}</span>`;
-      b.onclick = () => call('/start-section', { section: s });
-      bar.appendChild(b);
-    });
-    el.appendChild(bar);
-
     if (!sec || !state.sections[sec]) return;
     const busy = state.current && state.current.phase && state.current.phase !== 'done';
     const secType = sectionType(sec);
