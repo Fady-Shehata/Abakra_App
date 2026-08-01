@@ -15,10 +15,10 @@
   const SPIN_DURATION_MS = 3000;
   const SPIN_RESULT_POPUP_MS = 2000;
   const SECTION_VISUALS = {
-    1: '/static/img/section-1-group-timed.svg',
-    2: '/static/img/section-2-group-speed.svg',
-    3: '/static/img/section-3-solo-speed.svg',
-    4: '/static/img/section-4-lucky-wheel.svg',
+    1: '/static/img/section-1-group-timed.png',
+    2: '/static/img/section-2-group-speed.png',
+    3: '/static/img/section-3-solo-speed.png',
+    4: '/static/img/section-4-lucky-wheel.png',
   };
   const timerAudio = makeAudio(TIMER_SOUND_URL, true);
   const spinAudio = makeAudio(SPIN_SOUND_URL, false);
