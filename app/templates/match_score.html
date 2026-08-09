@@ -29,6 +29,32 @@
   </div>
 </div>
 
+{% if user.role_name == ROLE_ADMIN %}
+<div class="card">
+  <h3>{{ t('edit_result') }}</h3>
+  <form method="post" action="/matches/{{ match.id }}/result" class="row" style="gap:10px; flex-wrap:wrap; align-items:flex-end">
+    <input type="hidden" name="redirect_to" value="/matches/{{ match.id }}/score"/>
+    <div>
+      <label>{{ match.team_a.name if match.team_a else t('team_a') }}</label>
+      <input type="number" name="score_a" min="0" value="{{ match.score_a }}" required style="width:90px"/>
+    </div>
+    <div>
+      <label>{{ match.team_b.name if match.team_b else t('team_b') }}</label>
+      <input type="number" name="score_b" min="0" value="{{ match.score_b }}" required style="width:90px"/>
+    </div>
+    <div>
+      <label>{{ t('winner') }}</label>
+      <select name="winner_side">
+        <option value="" {{ 'selected' if not match.winner_team_id else '' }}>{{ t('draw') }}</option>
+        <option value="a" {{ 'selected' if match.winner_team_id == match.team_a_id else '' }}>{{ match.team_a.name if match.team_a else t('team_a') }}</option>
+        <option value="b" {{ 'selected' if match.winner_team_id == match.team_b_id else '' }}>{{ match.team_b.name if match.team_b else t('team_b') }}</option>
+      </select>
+    </div>
+    <div style="flex:0"><button class="btn primary">{{ t('save_changes') }}</button></div>
+  </form>
+</div>
+{% endif %}
+
 <div class="card">
   <h3>Scoring Module</h3>
   <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">

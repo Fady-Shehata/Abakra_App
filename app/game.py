@@ -10,7 +10,7 @@ import json
 import random
 from typing import Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -71,8 +71,38 @@ def used_question_ids(db: Session, session_id: int) -> set[int]:
     return {r[0] for r in rows}
 
 
-def available_count(db: Session, session_id: int, category_id: int) -> int:
-    used = used_question_ids(db, session_id)
+def team_history_question_ids(db: Session, session: models.GameSession) -> set[int]:
+    match = session.match
+    if not match:
+        return set()
+    team_ids = [tid for tid in (match.team_a_id, match.team_b_id) if tid]
+    if not team_ids:
+        return set()
+    rows = (
+        db.query(models.QuestionUsage.question_id)
+        .join(models.GameSession, models.QuestionUsage.session_id == models.GameSession.id)
+        .join(models.Match, models.GameSession.match_id == models.Match.id)
+        .filter(
+            models.QuestionUsage.session_id != session.id,
+            or_(
+                models.Match.team_a_id.in_(team_ids),
+                models.Match.team_b_id.in_(team_ids),
+            ),
+        )
+        .all()
+    )
+    return {r[0] for r in rows}
+
+
+def unavailable_question_ids(db: Session, session: models.GameSession) -> set[int]:
+    return used_question_ids(db, session.id) | team_history_question_ids(db, session)
+
+
+def available_count(db: Session, session_or_id: models.GameSession | int, category_id: int) -> int:
+    if isinstance(session_or_id, models.GameSession):
+        used = unavailable_question_ids(db, session_or_id)
+    else:
+        used = used_question_ids(db, int(session_or_id))
     q = db.query(func.count(models.Question.id)).filter(
         models.Question.category_id == category_id,
         models.Question.is_active == True,  # noqa: E712
@@ -82,10 +112,10 @@ def available_count(db: Session, session_id: int, category_id: int) -> int:
     return q.scalar() or 0
 
 
-def remaining_by_category(db: Session, session_id: int) -> list[dict]:
+def remaining_by_category(db: Session, session_or_id: models.GameSession | int) -> list[dict]:
     out = []
     for cat in regular_categories(db):
-        out.append({**cat, "remaining": available_count(db, session_id, cat["id"])})
+        out.append({**cat, "remaining": available_count(db, session_or_id, cat["id"])})
     return out
 
 
@@ -114,6 +144,8 @@ def start_section(db: Session, session: models.GameSession, section: int) -> dic
         plan = [{"category_id": None, "category_name": section_name, "team": None}]
     else:
         raise GameError("invalid_transition")
+    if section_type in (1, 2, 3):
+        random.shuffle(plan)
 
     # validate availability per category (sections 1-3)
     if section_type in (1, 2, 3):
@@ -121,7 +153,7 @@ def start_section(db: Session, session: models.GameSession, section: int) -> dic
         for slot in plan:
             need[slot["category_id"]] = need.get(slot["category_id"], 0) + 1
         for cat_id, n in need.items():
-            if available_count(db, session.id, cat_id) < n:
+            if available_count(db, session, cat_id) < n:
                 cat = db.get(models.Category, cat_id)
                 raise GameError("not_enough_questions", n=n, cat=cat.name if cat else cat_id)
 
@@ -167,7 +199,7 @@ def select_question(
     if state.get("current") and state["current"].get("phase") not in (None, "done"):
         raise GameError("invalid_transition")
 
-    used = used_question_ids(db, session.id)
+    used = unavailable_question_ids(db, session)
     candidates = db.query(models.Question.id).filter(
         models.Question.category_id == category_id,
         models.Question.is_active == True,  # noqa: E712

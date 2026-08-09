@@ -7,6 +7,8 @@
      used here. */
   #matches-table .edit-row { display: none; }
   #matches-table .edit-row.open { display: table-row; }
+  #matches-table .result-row { display: none; }
+  #matches-table .result-row.open { display: table-row; }
   #matches-table .view-row.hidden { display: none; }
   /* Uniform square action icons in the matches table so ✏️ and 🗑️
      render at the same visual size regardless of button padding. */
@@ -193,6 +195,7 @@
           {% if m.status in ('in_progress', 'paused', 'completed') %}
           {% if m.status == 'completed' %}
           <a class="btn sm primary" href="/matches/{{ m.id }}/score">Score Board</a>
+          <button type="button" class="btn sm ghost" data-result-open="{{ m.id }}">{{ t('edit_result') }}</button>
           {% endif %}
           <form method="post" action="/matches/{{ m.id }}/restart-ready"
                 data-confirm="Restart this match and make it ready (جاهزة)? Existing live progress and score events for this match will be cleared."
@@ -253,6 +256,35 @@
           </div>
           <div style="flex:0"><button class="btn sm">💾 {{ t('save_changes') }}</button></div>
           <div style="flex:0"><button type="button" class="btn sm ghost" data-edit-close="{{ m.id }}">{{ t('cancel') }}</button></div>
+        </form>
+      </td>
+    </tr>
+    {% endif %}
+    {% if m.status == 'completed' %}
+    <tr id="result-{{ m.id }}" class="result-row">
+      <td colspan="7" style="background:var(--surface-2)">
+        <form method="post" action="/matches/{{ m.id }}/result" class="row"
+              data-edit-result data-mid="{{ m.id }}"
+              style="gap:10px; flex-wrap:wrap; align-items:flex-end">
+          <input type="hidden" name="redirect_to" value="/matches"/>
+          <div>
+            <label>{{ m.team_a.name if m.team_a else t('team_a') }}</label>
+            <input type="number" name="score_a" min="0" value="{{ m.score_a }}" required style="width:90px"/>
+          </div>
+          <div>
+            <label>{{ m.team_b.name if m.team_b else t('team_b') }}</label>
+            <input type="number" name="score_b" min="0" value="{{ m.score_b }}" required style="width:90px"/>
+          </div>
+          <div>
+            <label>{{ t('winner') }}</label>
+            <select name="winner_side">
+              <option value="" {{ 'selected' if not m.winner_team_id else '' }}>{{ t('draw') }}</option>
+              <option value="a" {{ 'selected' if m.winner_team_id == m.team_a_id else '' }}>{{ m.team_a.name if m.team_a else t('team_a') }}</option>
+              <option value="b" {{ 'selected' if m.winner_team_id == m.team_b_id else '' }}>{{ m.team_b.name if m.team_b else t('team_b') }}</option>
+            </select>
+          </div>
+          <div style="flex:0"><button class="btn sm">💾 {{ t('save_changes') }}</button></div>
+          <div style="flex:0"><button type="button" class="btn sm ghost" data-result-close="{{ m.id }}">{{ t('cancel') }}</button></div>
         </form>
       </td>
     </tr>
@@ -459,11 +491,27 @@
     if (edit) edit.classList.remove('open');
     if (view) view.classList.remove('hidden');
   }
+  function openResult(mid) {
+    const view = document.getElementById('view-' + mid);
+    const result = document.getElementById('result-' + mid);
+    if (view) view.classList.add('hidden');
+    if (result) result.classList.add('open');
+  }
+  function closeResult(mid) {
+    const view = document.getElementById('view-' + mid);
+    const result = document.getElementById('result-' + mid);
+    if (result) result.classList.remove('open');
+    if (view) view.classList.remove('hidden');
+  }
   document.addEventListener('click', (ev) => {
     const openBtn = ev.target.closest('[data-edit-open]');
     if (openBtn) { ev.preventDefault(); openEdit(openBtn.dataset.editOpen); return; }
     const closeBtn = ev.target.closest('[data-edit-close]');
     if (closeBtn) { ev.preventDefault(); closeEdit(closeBtn.dataset.editClose); return; }
+    const resultOpenBtn = ev.target.closest('[data-result-open]');
+    if (resultOpenBtn) { ev.preventDefault(); openResult(resultOpenBtn.dataset.resultOpen); return; }
+    const resultCloseBtn = ev.target.closest('[data-result-close]');
+    if (resultCloseBtn) { ev.preventDefault(); closeResult(resultCloseBtn.dataset.resultClose); return; }
   });
 
   // When Save is clicked, close the edit row immediately so it disappears
@@ -474,11 +522,18 @@
     const mid = form.dataset.mid;
     if (mid) closeEdit(mid);
   }, true);
+  document.addEventListener('submit', (ev) => {
+    const form = ev.target.closest('form[data-edit-result]');
+    if (!form) return;
+    const mid = form.dataset.mid;
+    if (mid) closeResult(mid);
+  }, true);
 
   // Also close on pageshow when navigating back via bfcache — otherwise
   // Firefox / Safari can restore a previously opened edit panel.
   window.addEventListener('pageshow', () => {
     document.querySelectorAll('#matches-table .edit-row.open').forEach(r => r.classList.remove('open'));
+    document.querySelectorAll('#matches-table .result-row.open').forEach(r => r.classList.remove('open'));
     document.querySelectorAll('#matches-table .view-row.hidden').forEach(r => r.classList.remove('hidden'));
   });
 })();

@@ -6,7 +6,7 @@ import openpyxl
 
 from app import excel_import, game as ge, models
 from app.database import SessionLocal
-from tests.conftest import make_category, make_match_with_session, make_question, make_source
+from tests.conftest import make_category, make_match_with_session, make_question, make_source, make_team
 
 
 def _clear_categories(db):
@@ -41,6 +41,9 @@ def test_sessions_independent_usage(db_session):
 
     m1 = make_match_with_session(db_session)
     m2 = make_match_with_session(db_session)
+    m2.team_a_id = make_team(db_session, "C").id
+    m2.team_b_id = make_team(db_session, "D").id
+    db_session.commit()
 
     ge.start_section(db_session, m1.session, 2)
     ge.select_question(db_session, m1.session, 2, cat.id, None, None)
@@ -54,6 +57,29 @@ def test_sessions_independent_usage(db_session):
 
     assert m1.score_a == 5
     assert m2.score_b == 5
+
+
+def test_team_history_questions_are_not_reused(db_session):
+    _clear_categories(db_session)
+    cat = make_category(db_session, "ظƒطھط§ط¨ ظ„ط§ظ‡ظˆطھ", True, True)
+    src = make_source(db_session, "u2_team_history.xlsx")
+    q1 = make_question(db_session, cat.id, src.id, "Q_team_history_1", "h_team_history_1")
+    q2 = make_question(db_session, cat.id, src.id, "Q_team_history_2", "h_team_history_2")
+
+    m1 = make_match_with_session(db_session)
+    ge.start_section(db_session, m1.session, 2)
+    ge.select_question(db_session, m1.session, 2, cat.id, None, None)
+    first = ge.load_state(m1.session)["current"]["question_id"]
+    ge.reveal(db_session, m1.session)
+    ge.mark_correct(db_session, m1.session, "a", None)
+
+    m2 = make_match_with_session(db_session)
+    ge.start_section(db_session, m2.session, 2)
+    ge.select_question(db_session, m2.session, 2, cat.id, None, None)
+    second = ge.load_state(m2.session)["current"]["question_id"]
+
+    assert first in {q1.id, q2.id}
+    assert second in {q1.id, q2.id} - {first}
 
 
 def test_concurrent_select_cannot_double_reserve(db_session):

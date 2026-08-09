@@ -381,12 +381,18 @@
           () => call('/mark', { action: teamKey === 'a' ? 'a_correct' : 'b_correct' })));
         bar.appendChild(teamRow);
       }
-      const wrongRow = document.createElement('div');
-      wrongRow.className = 'answer-actions-row aa-row-wrong';
-      wrongRow.appendChild(actionSecondaryButton(
+      const wrongAction = actionSecondaryButton(
         `${L['wrong']} → ${L['open_rebound']}`, 'aa-wrong',
-        () => call('/mark', { action: 'wrong' })));
-      bar.appendChild(wrongRow);
+        () => call('/mark', { action: 'wrong' }));
+      if (secType === 1 && team) {
+        teamRow.classList.remove('aa-row-single');
+        teamRow.appendChild(wrongAction);
+      } else {
+        const wrongRow = document.createElement('div');
+        wrongRow.className = 'answer-actions-row aa-row-wrong';
+        wrongRow.appendChild(wrongAction);
+        bar.appendChild(wrongRow);
+      }
     } else if (secType === 2 || secType === 3) {
       // Quick sections: either team can score
       teamRow.appendChild(actionTeamScoreButton('a', state.team_a, 5,
@@ -526,7 +532,6 @@
     bar.appendChild(btn(`${L['spin']} — ${state.team_b.name}`, 'primary',
       () => doSpin('b'), busy || w.spins_b <= 0));
     el.appendChild(bar);
-    el.appendChild(btn(L['finish_section'], 'ghost mt', () => call('/finish-section', { section: sectionId })));
 
     if (state.last_spin) {
       const info = document.createElement('p');
@@ -538,7 +543,7 @@
 
   function drawWheel(elm) {
     if (!elm) return;
-    const segs = state.remaining.map(c => c.name).concat(['الجوكر']);
+    const segs = state.remaining.map(c => c.name).concat([L['joker']]);
     const n = segs.length;
     const colors = ['#123a6b', '#2b9fd6', '#e8821e', '#7a1620', '#2e9d63', '#d9a938'];
     let stops = [];
@@ -559,7 +564,7 @@
     setTimeout(() => stopSound(spinAudio), SPIN_DURATION_MS);
     setTimeout(() => {
       showSpinResultPopup(spin, () => {
-        if (spin && spin.result === 'الجوكر') {
+        if (spin && spin.result === L['joker']) {
           openJokerDialog(team);
         } else if (spin) {
           const cat = state.remaining.find(c => c.name === spin.result);
@@ -601,10 +606,10 @@
     </div></div>`;
     const cc = $('joker-cats');
     state.remaining.forEach(c => {
-      cc.appendChild(mkChip(`${c.name} (${c.remaining})`, c.remaining <= 0, () => {
+      cc.appendChild(mkChip(c.name, c.remaining, c.remaining <= 0, () => {
         root.innerHTML = '';
         call('/select', { section: state.current_section, category_id: c.id, team, via_joker: true });
-      }));
+      }, 'shared'));
     });
     $('joker-cancel').onclick = () => { root.innerHTML = ''; render(); };
   }

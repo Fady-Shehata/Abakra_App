@@ -175,6 +175,7 @@
   "delete_match": "حذف",
   "confirm_delete_match": "هل تريد حذف هذه المباراة؟",
   "edit_match": "تعديل المباراة",
+  "edit_result": "تعديل النتيجة",
   "save_changes": "حفظ التعديلات",
   "rename_group": "تغيير الاسم",
   "delete_group": "حذف المجموعة",

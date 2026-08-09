@@ -32,7 +32,7 @@ def _get_match_for_user(mid: int, request: Request, db: Session) -> models.Match
 def _serialize_state(db: Session, match: models.Match) -> dict:
     session = match.session
     state = ge.load_state(session) if session else ge._default_state()
-    remaining = ge.remaining_by_category(db, session.id) if session else []
+    remaining = ge.remaining_by_category(db, session) if session else []
     section_names = scoring.section_names(db)
     section_types = scoring.section_types(db)
     current = state.get("current")

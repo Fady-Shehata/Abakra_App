@@ -175,6 +175,7 @@
   "delete_match": "Delete",
   "confirm_delete_match": "Delete this match?",
   "edit_match": "Edit Match",
+  "edit_result": "Edit Result",
   "save_changes": "Save Changes",
   "rename_group": "Rename",
   "delete_group": "Delete Group",

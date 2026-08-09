@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Form, Request, UploadFile, File
 from fastapi.responses import RedirectResponse, HTMLResponse
 from sqlalchemy.orm import Session
 
-from . import config, models, security, i18n, standings as standings_mod, game as game_engine, scoring
+from . import config, models, security, i18n, standings as standings_mod, game as game_engine, scoring, match_service
 from .database import get_db
 from .deps import render
 from .security import get_current_user, require_login, require_admin
@@ -912,6 +912,29 @@ def match_edit(mid: int,
     db.commit()
     security.audit(db, user.id, "edit_match", f"m={mid}")
     return RedirectResponse("/matches", 302)
+
+
+@router.post("/matches/{mid}/result")
+def match_result_edit(mid: int,
+                      score_a: int = Form(...),
+                      score_b: int = Form(...),
+                      winner_side: str = Form(""),
+                      redirect_to: str = Form("/matches"),
+                      db: Session = Depends(get_db),
+                      user: models.User = Depends(require_admin)):
+    m = db.get(models.Match, mid)
+    if not m:
+        return RedirectResponse("/matches", 302)
+    if m.status != "completed":
+        return RedirectResponse("/matches?err=result_locked", 302)
+    forced = winner_side if winner_side in ("a", "b") else None
+    try:
+        match_service.update_match_result(db, m, score_a, score_b, user.id, forced_winner_side=forced)
+    except game_engine.GameError as e:
+        target = redirect_to or "/matches"
+        sep = "&" if "?" in target else "?"
+        return RedirectResponse(f"{target}{sep}err={e.key}", 302)
+    return RedirectResponse(redirect_to or "/matches", 302)
 
 
 @router.post("/groups/{gid}/rename")
