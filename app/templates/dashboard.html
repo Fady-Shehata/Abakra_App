@@ -49,9 +49,9 @@
   {% if group_results %}
     {% for item in group_results %}
       <h4 class="mt">{{ item.tournament.name }}</h4>
-      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr));">
+      <div class="dashboard-standings-grid">
         {% for grp in item.groups %}
-        <div class="score-breakdown">
+        <div class="score-breakdown dashboard-standing-card">
           <div class="score-breakdown-head">
             <strong>{{ grp.group.name }}</strong>
             <span>{{ grp.completed_matches }}</span>
@@ -86,7 +86,7 @@
                 <td><strong>{{ row.points }}</strong></td>
                 <td>{{ row.gf }}</td>
                 <td>{{ row.ga }}</td>
-                <td>{{ row.gd }}</td>
+                <td class="{% if row.gd > 0 %}diff-positive{% elif row.gd < 0 %}diff-negative{% endif %}">{{ row.gd }}</td>
               </tr>
               {% else %}
               <tr><td colspan="10" class="muted">—</td></tr>

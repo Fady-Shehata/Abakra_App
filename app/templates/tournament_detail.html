@@ -167,7 +167,7 @@
   <table>
     <tr><th>{{ t('rank') }}</th><th>{{ t('team') }}</th><th>{{ t('played') }}</th><th>{{ t('won') }}</th><th>{{ t('drawn') }}</th><th>{{ t('lost') }}</th><th>{{ t('points') }}</th><th>{{ t('gf') }}</th><th>{{ t('ga') }}</th><th>{{ t('gd') }}</th></tr>
     {% for r in gt.rows %}
-    <tr><td>{{ r.rank }}</td><td><div class="team-title">{{ r.team_name }}</div>{% if r.team_level %}<div class="team-subtitle">{{ r.team_level }}</div>{% endif %}</td><td>{{ r.played }}</td><td>{{ r.won }}</td><td>{{ r.drawn }}</td><td>{{ r.lost }}</td><td><strong>{{ r.points }}</strong></td><td>{{ r.gf }}</td><td>{{ r.ga }}</td><td>{{ r.gd }}</td></tr>
+    <tr><td>{{ r.rank }}</td><td><div class="team-title">{{ r.team_name }}</div>{% if r.team_level %}<div class="team-subtitle">{{ r.team_level }}</div>{% endif %}</td><td>{{ r.played }}</td><td>{{ r.won }}</td><td>{{ r.drawn }}</td><td>{{ r.lost }}</td><td><strong>{{ r.points }}</strong></td><td>{{ r.gf }}</td><td>{{ r.ga }}</td><td class="{% if r.gd > 0 %}diff-positive{% elif r.gd < 0 %}diff-negative{% endif %}">{{ r.gd }}</td></tr>
     {% endfor %}
   </table>
 </div>

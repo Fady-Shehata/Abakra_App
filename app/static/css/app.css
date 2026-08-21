@@ -90,6 +90,16 @@ th, td { padding: 10px 12px; text-align: start; border-bottom: 1px solid var(--b
 th { background: var(--surface-2); color: var(--accent-light); }
 tr:hover td { background: rgba(43,159,214,.06); }
 
+.diff-positive {
+  color: #6ee7a7;
+  font-weight: 800;
+}
+
+.diff-negative {
+  color: #ff9d9d;
+  font-weight: 800;
+}
+
 /* ===== Forms / buttons ===== */
 label { display: block; margin: 10px 0 4px; color: var(--text-muted); font-size: .9rem; }
 input, select, textarea {
@@ -833,6 +843,16 @@ input[type="file"]::file-selector-button:hover {
 
 .score-breakdown table {
   min-width: 640px;
+}
+
+.dashboard-standings-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+.dashboard-standing-card table {
+  min-width: 760px;
 }
 
 .score-breakdown-head {
