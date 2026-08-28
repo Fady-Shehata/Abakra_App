@@ -136,6 +136,8 @@
   "upload_workbook": "Upload Workbook",
   "reset_usage": "Reset Question Usage",
   "reset_usage_confirm": "All questions will become available again for this match. Continue?",
+  "yellow_card": "Yellow Card (-3)",
+  "yellow_card_confirm": "Apply yellow card penalty to {team}? This subtracts 3 points.",
 
   "import_summary": "Import Summary",
   "workbook_name": "Workbook Name",

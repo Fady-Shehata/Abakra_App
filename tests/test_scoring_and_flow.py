@@ -28,6 +28,24 @@ def test_original_correct_is_5(db_session):
     assert m2.score_b == 0
 
 
+def test_yellow_card_subtracts_three_and_records_event(db_session):
+    m = make_match_with_session(db_session)
+    m.status = "in_progress"
+    db_session.commit()
+
+    ge.apply_yellow_card(db_session, m.session, "b", None)
+
+    db_session.expire_all()
+    updated = db_session.get(models.Match, m.id)
+    event = db_session.query(models.ScoreEvent).filter_by(match_id=m.id, reason="yellow_card").one()
+    assert updated.score_a == 0
+    assert updated.score_b == -3
+    assert event.team_id == updated.team_b_id
+    assert event.delta == -3
+    assert event.section is None
+    assert event.question_id is None
+
+
 def test_rebound_correct_is_10_for_opponent(db_session):
     _clear_categories(db_session)
     cat = make_category(db_session, "كتاب لاهوت", True, True)

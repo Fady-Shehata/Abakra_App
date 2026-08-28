@@ -285,7 +285,7 @@ def reset_buzzer(db: Session, session: models.GameSession) -> dict:
 # Scoring actions
 # --------------------------------------------------------------------------- #
 def _add_score(db: Session, match: models.Match, team: str, delta: int,
-               reason: str, section: int, question_id: Optional[int], host_id: Optional[int]):
+               reason: str, section: Optional[int], question_id: Optional[int], host_id: Optional[int]):
     team_id = match.team_a_id if team == "a" else match.team_b_id
     if team == "a":
         match.score_a += delta
@@ -296,6 +296,18 @@ def _add_score(db: Session, match: models.Match, team: str, delta: int,
         team_id=team_id, question_id=question_id, delta=delta,
         reason=reason, host_id=host_id,
     ))
+
+
+def apply_yellow_card(db: Session, session: models.GameSession, team: str, host_id: Optional[int]) -> dict:
+    """Yellow card penalty: subtract 3 points from the selected team."""
+    if team not in ("a", "b"):
+        raise GameError("invalid_transition")
+    match = session.match
+    if not match or match.status not in ("in_progress", "paused"):
+        raise GameError("invalid_transition")
+    _add_score(db, match, team, -3, "yellow_card", None, None, host_id)
+    db.commit()
+    return load_state(session)
 
 
 def _finish_current(db: Session, session: models.GameSession, state: dict, result: str,

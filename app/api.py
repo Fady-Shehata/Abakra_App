@@ -181,6 +181,8 @@ def mark(mid: int, request: Request, payload: dict = Body(...), db: Session = De
             ge.father_award(db, s, "b", hid)
         elif action == "father_none":
             ge.father_award(db, s, None, hid)
+        elif action == "yellow_card":
+            ge.apply_yellow_card(db, s, payload.get("team"), hid)
         elif action == "skip":
             ge.skip_question(db, s, hid)
         elif action == "invalidate":

@@ -23,7 +23,8 @@
        "match_ready_hint":"{{ t('match_ready_hint') }}",
        "father_a":"{{ t('team_a') }}","father_b":"{{ t('team_b') }}","match_history":"{{ t('match_history') }}",
        "confirm":"{{ t('confirm') }}","cancel":"{{ t('cancel') }}","reset_usage":"{{ t('reset_usage') }}",
-       "reset_usage_confirm":"{{ t('reset_usage_confirm') }}","invalidate_reason":"{{ t('invalidate_reason') }}"
+       "reset_usage_confirm":"{{ t('reset_usage_confirm') }}","invalidate_reason":"{{ t('invalidate_reason') }}",
+       "yellow_card":"{{ t('yellow_card') }}","yellow_card_confirm":"{{ t('yellow_card_confirm') }}"
      }'
      data-is-admin="{{ '1' if user.role_name == ROLE_ADMIN else '0' }}">
 
@@ -96,6 +97,8 @@
   </div>
 
   <div class="controls">
+    <button class="btn warning" id="btn-yellow-a"></button>
+    <button class="btn warning" id="btn-yellow-b"></button>
     <button class="btn ghost" id="btn-pause-match"></button>
     <button class="btn primary" id="btn-complete"></button>
     <button class="btn ghost" id="btn-reset-ready" data-confirm="{{ t('return_to_ready_confirm') }}">{{ t('return_to_ready') }}</button>

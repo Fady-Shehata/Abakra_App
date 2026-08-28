@@ -87,9 +87,13 @@
     $('match-summary-grid').classList.toggle('hidden', !completed);
     document.getElementById('section-tabs').classList.toggle('hidden', notStarted || completed);
     // Pause / return-to-ready button visibility.
+    $('btn-yellow-a').classList.toggle('hidden', notStarted || completed);
+    $('btn-yellow-b').classList.toggle('hidden', notStarted || completed);
     $('btn-pause-match').classList.toggle('hidden', notStarted || completed);
     $('btn-reset-ready').classList.toggle('hidden', notStarted || completed);
     $('btn-complete').classList.toggle('hidden', notStarted || completed);
+    $('btn-yellow-a').textContent = `${L['yellow_card']} - ${state.team_a.name}`;
+    $('btn-yellow-b').textContent = `${L['yellow_card']} - ${state.team_b.name}`;
 
     if (notStarted) {
       // Nothing else to render while awaiting Start.
@@ -490,9 +494,10 @@
         html += '</div>';
       }
       if (answerUnlocked) {
-        html += '<div class="answer-panel">';
-        if (c.answer) html += `<p><strong>${L['correct_answer']}:</strong> ${escapeHtml(c.answer)}</p>`;
-        if (c.explanation) html += `<p class="muted">${L['explanation']}: ${escapeHtml(c.explanation)}</p>`;
+        html += '<div class="answer-panel answer-reveal-panel">';
+        html += `<div class="answer-reveal-label">${escapeHtml(L['correct_answer'])}</div>`;
+        html += `<div class="answer-reveal-value">${escapeHtml(c.answer || '')}</div>`;
+        if (c.explanation) html += `<div class="answer-reveal-explanation">${escapeHtml(c.explanation)}</div>`;
         html += '</div>';
       }
     }
@@ -623,7 +628,8 @@
     $('history-list').innerHTML = state.history.map(h => {
       const who = h.team === 'a' ? state.team_a.name : h.team === 'b' ? state.team_b.name : '—';
       const sign = h.delta > 0 ? '+' : '';
-      return `<div class="row" style="justify-content:space-between"><span class="muted">${h.reason}</span><span>${who} ${sign}${h.delta}</span></div>`;
+      const reason = h.reason === 'yellow_card' ? L['yellow_card'] : h.reason;
+      return `<div class="row" style="justify-content:space-between"><span class="muted">${escapeHtml(reason)}</span><span>${escapeHtml(who)} ${sign}${h.delta}</span></div>`;
     }).join('');
   }
 
@@ -738,6 +744,16 @@
   }
 
   // ---------- match controls ----------
+  function yellowCard(team) {
+    const teamName = team === 'a' ? state.team_a.name : state.team_b.name;
+    const message = (L['yellow_card_confirm'] || '').replace('{team}', teamName);
+    window.SmartConfirm(
+      { message, okLabel: L['yellow_card'], okKind: 'danger' },
+      () => call('/mark', { action: 'yellow_card', team }),
+    );
+  }
+  $('btn-yellow-a').onclick = () => yellowCard('a');
+  $('btn-yellow-b').onclick = () => yellowCard('b');
   $('btn-pause-match').onclick = () => call(state.status === 'paused' ? '/resume' : '/pause', {});
   $('btn-complete').onclick = async () => {
     const r = await apiPost(base + '/complete', {});
