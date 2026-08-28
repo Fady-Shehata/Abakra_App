@@ -738,18 +738,20 @@ def tournament_generate_groups_sequential(
 
 @router.post("/tournaments/{tid}/generate-group-matches")
 def tournament_group_matches(tid: int, db: Session = Depends(get_db),
-                             user: models.User = Depends(require_admin)):
+                             user: models.User = Depends(require_admin),
+                             redirect_to: str = Form("")):
     from .services import generate_group_matches
     generate_group_matches(db, tid)
-    return RedirectResponse(f"/tournaments/{tid}", 302)
+    return RedirectResponse(redirect_to or f"/tournaments/{tid}", 302)
 
 
 @router.post("/tournaments/{tid}/generate-bracket")
 def tournament_generate_bracket(tid: int, qualifiers: int = Form(2),
+                                redirect_to: str = Form(""),
                                 db: Session = Depends(get_db), user: models.User = Depends(require_admin)):
     from .services import generate_knockout
     generate_knockout(db, tid, qualifiers)
-    return RedirectResponse(f"/tournaments/{tid}", 302)
+    return RedirectResponse(redirect_to or f"/tournaments/{tid}", 302)
 
 
 @router.post("/tournaments/{tid}/auto-build")

@@ -48,7 +48,9 @@
   {# ---- AUTO MODE PANEL ---- #}
   <div id="mode-auto" class="mode-panel">
     <p class="muted" style="margin-top:0">{{ t('auto_build_desc') }}</p>
-    <form method="post" id="auto-build-form" class="row" style="gap:10px; flex-wrap:wrap; align-items:flex-end">
+    <form method="post" id="auto-build-form" class="row" style="gap:10px; flex-wrap:wrap; align-items:flex-end"
+          data-confirm="{{ t('confirm_auto_build') }}"
+          data-confirm-ok="{{ t('run_auto_build') }}">
       <div>
         <label>{{ t('number_of_groups') }}</label>
         <input type="number" name="num_groups" min="1" max="16" value="2" required style="width:90px"/>
@@ -70,7 +72,9 @@
     <div style="border-top:1px solid var(--border-color); margin-top:14px; padding-top:12px">
       <h4 style="margin:0 0 6px">🔢 {{ t('sequential_fill') }}</h4>
       <p class="muted" style="margin:0 0 8px; font-size:.85rem">{{ t('sequential_desc') }}</p>
-      <form method="post" id="seq-build-form" class="row" style="gap:10px; flex-wrap:wrap; align-items:flex-end">
+      <form method="post" id="seq-build-form" class="row" style="gap:10px; flex-wrap:wrap; align-items:flex-end"
+            data-confirm="{{ t('confirm_rebuild_group_matches') }}"
+            data-confirm-ok="{{ t('run_sequential') }}">
         <div>
           <label>{{ t('teams_per_group') }}</label>
           <input type="number" name="teams_per_group" min="1" max="16" value="4" required style="width:90px"/>
@@ -83,6 +87,22 @@
         </div>
         <input type="hidden" name="redirect_to" value="/matches"/>
         <div style="flex:0"><button class="btn primary" type="submit">⚡ {{ t('run_sequential') }}</button></div>
+      </form>
+    </div>
+
+    <div style="border-top:1px solid var(--border-color); margin-top:14px; padding-top:12px">
+      <h4 style="margin:0 0 6px">{{ t('stage_knockout') }}</h4>
+      <p class="muted" style="margin:0 0 8px; font-size:.85rem">{{ t('generate_knockout_desc') }}</p>
+      <form method="post" id="knockout-build-form" class="row" style="gap:10px; flex-wrap:wrap; align-items:flex-end"
+            data-confirm="{{ t('confirm_generate_knockout') }}"
+            data-confirm-ok="{{ t('generate_knockout_matches') }}"
+            data-confirm-kind="primary">
+        <div>
+          <label>{{ t('qualifiers_per_group') }}</label>
+          <input type="number" name="qualifiers" min="1" max="8" value="2" style="width:90px"/>
+        </div>
+        <input type="hidden" name="redirect_to" value="/matches"/>
+        <div style="flex:0"><button class="btn primary" type="submit">{{ t('generate_knockout_matches') }}</button></div>
       </form>
     </div>
   </div>
@@ -314,6 +334,7 @@
   const tSel = $('#builder-tournament');
   const autoForm = $('#auto-build-form');
   const seqForm = $('#seq-build-form');
+  const knockoutForm = $('#knockout-build-form');
   const assignForm = $('#assign-groups-form');
   const numGroupsInput = $('#manual-num-groups');
   const listWrap = $('#team-assignment-list');
@@ -392,6 +413,7 @@
     autoForm.action = t ? `/tournaments/${t.id}/auto-build` : '';
     // Sequential-fill form action
     if (seqForm) seqForm.action = t ? `/tournaments/${t.id}/generate-groups-sequential` : '';
+    if (knockoutForm) knockoutForm.action = t ? `/tournaments/${t.id}/generate-bracket` : '';
     // Manual assign form action
     assignForm.action = t ? `/tournaments/${t.id}/groups/assign` : '';
     // Manual match tournament_id

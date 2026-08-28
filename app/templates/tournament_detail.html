@@ -50,14 +50,18 @@
 
   <div class="card">
     <h3>{{ t('groups') }}</h3>
-    <form method="post" action="/tournaments/{{ tour.id }}/generate-groups" class="row">
+    <form method="post" action="/tournaments/{{ tour.id }}/generate-groups" class="row"
+          data-confirm="{{ t('confirm_rebuild_groups') }}"
+          data-confirm-ok="{{ t('generate_groups') }}">
       <div><label>{{ t('number_of_groups') }}</label><input type="number" name="num_groups" value="1" min="1"/></div>
       <div style="flex:0;align-self:end"><button class="btn sm">{{ t('generate_groups') }}</button></div>
     </form>
     <div style="border-top:1px solid var(--border-color); margin-top:12px; padding-top:12px">
       <h4 style="margin:0 0 6px">🔢 {{ t('sequential_fill') }}</h4>
       <p class="muted" style="margin:0 0 8px; font-size:.85rem">{{ t('sequential_desc') }}</p>
-      <form method="post" action="/tournaments/{{ tour.id }}/generate-groups-sequential" class="row" style="flex-wrap:wrap; gap:10px; align-items:flex-end">
+      <form method="post" action="/tournaments/{{ tour.id }}/generate-groups-sequential" class="row" style="flex-wrap:wrap; gap:10px; align-items:flex-end"
+            data-confirm="{{ t('confirm_rebuild_groups') }}"
+            data-confirm-ok="{{ t('run_sequential') }}">
         <div>
           <label>{{ t('teams_per_group') }}</label>
           <input type="number" name="teams_per_group" value="4" min="1" style="width:90px"/>
@@ -71,7 +75,9 @@
         <div style="flex:0"><button class="btn sm primary">⚡ {{ t('run_sequential') }}</button></div>
       </form>
     </div>
-    <form method="post" action="/tournaments/{{ tour.id }}/generate-group-matches" class="mt">
+    <form method="post" action="/tournaments/{{ tour.id }}/generate-group-matches" class="mt"
+          data-confirm="{{ t('confirm_rebuild_group_matches') }}"
+          data-confirm-ok="{{ t('generate_group_matches') }}">
       <button class="btn sm ghost">توليد مباريات المجموعات</button>
     </form>
     <form method="post" action="/tournaments/{{ tour.id }}/generate-bracket" class="row mt">
