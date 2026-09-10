@@ -110,6 +110,42 @@ def test_knockout_generation_with_byes_and_advance(db_session):
     assert m.winner_team_id is not None
 
 
+def test_knockout_generation_preserves_completed_group_results(db_session):
+    t = models.Tournament(name="Groups to KO", status="active")
+    db_session.add(t)
+    db_session.commit()
+    teams = [make_team(db_session, name) for name in ("A", "B", "C", "D")]
+    for team in teams:
+        db_session.add(models.TournamentTeam(tournament_id=t.id, team_id=team.id))
+    g1 = models.Group(tournament_id=t.id, name="G1")
+    g2 = models.Group(tournament_id=t.id, name="G2")
+    db_session.add_all([g1, g2])
+    db_session.commit()
+    for group, pair in ((g1, teams[:2]), (g2, teams[2:])):
+        for team in pair:
+            db_session.add(models.GroupTeam(group_id=group.id, team_id=team.id))
+        db_session.add(models.Match(
+            tournament_id=t.id, stage="group", group_id=group.id,
+            team_a_id=pair[0].id, team_b_id=pair[1].id,
+            status="completed", score_a=5, score_b=2, points_a=3, points_b=0,
+            winner_team_id=pair[0].id,
+        ))
+    db_session.commit()
+    original = {
+        m.id: (m.team_a_id, m.team_b_id, m.score_a, m.score_b, m.status)
+        for m in db_session.query(models.Match).filter_by(tournament_id=t.id, stage="group")
+    }
+
+    services.generate_knockout(db_session, t.id, qualifiers_per_group=1)
+
+    preserved = {
+        m.id: (m.team_a_id, m.team_b_id, m.score_a, m.score_b, m.status)
+        for m in db_session.query(models.Match).filter_by(tournament_id=t.id, stage="group")
+    }
+    assert preserved == original
+    assert db_session.query(models.Match).filter_by(tournament_id=t.id, stage="knockout").count() == 1
+
+
 def test_knockout_no_draw_requires_winner(db_session):
     t = models.Tournament(name="KO2", status="active")
     db_session.add(t)

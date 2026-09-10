@@ -751,6 +751,7 @@ def tournament_generate_bracket(tid: int, qualifiers: int = Form(2),
                                 db: Session = Depends(get_db), user: models.User = Depends(require_admin)):
     from .services import generate_knockout
     generate_knockout(db, tid, qualifiers)
+    security.audit(db, user.id, "generate_knockout", f"t={tid} q={qualifiers}")
     return RedirectResponse(redirect_to or f"/tournaments/{tid}", 302)
 
 
