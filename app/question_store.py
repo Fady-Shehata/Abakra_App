@@ -26,7 +26,6 @@ HEADER_MAP = {
     "difficulty": {"المستوى", "difficulty", "level", "الصعوبة"},
     "explanation": {"التعليل", "explanation", "شرح", "note"},
     "number": {"رقم السؤال", "number", "no", "م", "#", "id"},
-    "unit": {"الوحدة", "unit"},
 }
 
 CHOICE_LETTERS = {"أ": 0, "ا": 0, "ب": 1, "ج": 2, "د": 3, "a": 0, "b": 1, "c": 2, "d": 3}
@@ -101,7 +100,7 @@ def _load_workbook_rows(stored_path: str, mtime: float) -> dict:
         sheet_rows: dict[int, dict] = {}
         for r_i, raw in enumerate(rows[1:], start=2):
             fields = {"a": "", "b": "", "c": "", "d": "", "question": "",
-                      "answer": "", "difficulty": "", "explanation": "", "number": "", "unit": ""}
+                      "answer": "", "difficulty": "", "explanation": "", "number": ""}
             for idx, field in mapping.items():
                 if idx < len(raw):
                     fields[field] = "" if raw[idx] is None else str(raw[idx]).strip()
@@ -164,7 +163,6 @@ def render_question(db, question: models.Question, include_answer: bool = False)
         "text": fields.get("question", ""),
         "choices": choices,
         "difficulty": question.difficulty,
-        "unit": fields.get("unit", ""),
     }
     if include_answer:
         out["answer"] = display_answer(fields, question.qtype)

@@ -8,8 +8,6 @@ from __future__ import annotations
 
 import json
 import random
-import re
-from decimal import Decimal, InvalidOperation
 from typing import Optional
 
 from sqlalchemy import func, or_
@@ -100,8 +98,7 @@ def unavailable_question_ids(db: Session, session: models.GameSession) -> set[in
     return used_question_ids(db, session.id) | team_history_question_ids(db, session)
 
 
-def available_count(db: Session, session_or_id: models.GameSession | int, category_id: int,
-                    estimate_only: bool = False) -> int:
+def available_count(db: Session, session_or_id: models.GameSession | int, category_id: int) -> int:
     if isinstance(session_or_id, models.GameSession):
         used = unavailable_question_ids(db, session_or_id)
     else:
@@ -110,7 +107,6 @@ def available_count(db: Session, session_or_id: models.GameSession | int, catego
         models.Question.category_id == category_id,
         models.Question.is_active == True,  # noqa: E712
     )
-    q = q.filter(models.Question.qtype == "estimate") if estimate_only else q.filter(models.Question.qtype != "estimate")
     if used:
         q = q.filter(~models.Question.id.in_(used))
     return q.scalar() or 0
@@ -121,14 +117,6 @@ def remaining_by_category(db: Session, session_or_id: models.GameSession | int) 
     for cat in regular_categories(db):
         out.append({**cat, "remaining": available_count(db, session_or_id, cat["id"])})
     return out
-
-
-def estimate_remaining_by_category(db: Session, session_or_id: models.GameSession | int) -> list[dict]:
-    return [
-        {**cat, "remaining": available_count(db, session_or_id, cat["id"], estimate_only=True)}
-        for cat in regular_categories(db)
-        if cat["name"] in scoring.ESTIMATE_CATEGORIES
-    ]
 
 
 # --------------------------------------------------------------------------- #
@@ -154,14 +142,9 @@ def start_section(db: Session, session: models.GameSession, section: int) -> dic
         plan = []
     elif section_type == 5:
         plan = [{"category_id": None, "category_name": section_name, "team": None}]
-    elif section_type == 6:
-        estimate_cats = [c for c in cats if c["name"] in scoring.ESTIMATE_CATEGORIES]
-        if not estimate_cats:
-            raise GameError("not_enough_questions", n=1, cat=section_name)
-        plan = [{"category_id": c["id"], "category_name": c["name"], "team": None} for c in estimate_cats]
     else:
         raise GameError("invalid_transition")
-    if section_type in (1, 2, 3, 6):
+    if section_type in (1, 2, 3):
         random.shuffle(plan)
 
     # validate availability per category (sections 1-3)
@@ -217,12 +200,10 @@ def select_question(
         raise GameError("invalid_transition")
 
     used = unavailable_question_ids(db, session)
-    section_type = scoring.section_type(db, section)
     candidates = db.query(models.Question.id).filter(
         models.Question.category_id == category_id,
         models.Question.is_active == True,  # noqa: E712
     )
-    candidates = candidates.filter(models.Question.qtype == "estimate") if section_type == 6 else candidates.filter(models.Question.qtype != "estimate")
     if used:
         candidates = candidates.filter(~models.Question.id.in_(used))
     ids = [r[0] for r in candidates.all()]
@@ -255,7 +236,7 @@ def select_question(
         state["current"] = {
             "usage_id": usage.id, "question_id": qid, "category_id": category_id,
             "category_name": db.get(models.Category, category_id).name,
-            "team": team, "section": section, "section_type": section_type,
+            "team": team, "section": section, "section_type": scoring.section_type(db, section),
             "phase": "selected",
             "buzz_team": None, "via_joker": via_joker,
         }
@@ -451,47 +432,6 @@ def father_award(db: Session, session: models.GameSession, team: Optional[str], 
         _finish_current(db, session, state, "correct", None, pts)
     else:
         _finish_current(db, session, state, "none", None, 0)
-    save_state(db, session, state)
-    return state
-
-
-def _number(value) -> Decimal:
-    text = str(value).strip().translate(str.maketrans("٠١٢٣٤٥٦٧٨٩٫٬", "0123456789.,"))
-    text = re.sub(r"[^0-9+,.\-]", "", text).replace(",", "")
-    try:
-        return Decimal(text)
-    except (InvalidOperation, ValueError):
-        raise GameError("invalid_number")
-
-
-def submit_estimates(db: Session, session: models.GameSession, guess_a, guess_b,
-                     host_id: Optional[int]) -> dict:
-    """Award five points to the team closest to the workbook's numeric answer.
-
-    An exact distance tie awards both teams, since both estimates are equally closest.
-    """
-    state = load_state(session)
-    cur = state.get("current")
-    if not cur or cur.get("phase") != "revealed" or cur.get("section_type") != 6:
-        raise GameError("invalid_transition")
-    from . import question_store as qs
-    question = db.get(models.Question, cur["question_id"])
-    content = qs.render_question(db, question, include_answer=True) if question else {}
-    correct = _number(content.get("answer", ""))
-    a = _number(guess_a)
-    b = _number(guess_b)
-    distance_a, distance_b = abs(a - correct), abs(b - correct)
-    winners = ["a"] if distance_a < distance_b else ["b"] if distance_b < distance_a else ["a", "b"]
-    for team in winners:
-        _add_score(db, session.match, team, scoring.ESTIMATE_POINTS, "estimate_closest",
-                   cur["section"], cur["question_id"], host_id)
-    cur["estimate_result"] = {
-        "guess_a": str(a), "guess_b": str(b), "correct": str(correct),
-        "distance_a": str(distance_a), "distance_b": str(distance_b),
-        "winner": "tie" if len(winners) == 2 else winners[0],
-    }
-    _finish_current(db, session, state, f"estimate_{cur['estimate_result']['winner']}", None,
-                    scoring.ESTIMATE_POINTS * len(winners))
     save_state(db, session, state)
     return state
 

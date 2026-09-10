@@ -135,24 +135,3 @@ def test_import_corrupted_workbook(db_session, tmp_path: Path):
     cat = make_category(db_session, "كتاب لاهوت", True, True)
     summary = excel_import.import_questions_workbook(db_session, bad, bad.name, cat, None)
     assert "corrupted_file" in summary["errors"]
-
-
-def test_multicategory_estimate_import(db_session, tmp_path: Path):
-    theology = make_category(db_session, "كتاب لاهوت", True, True)
-    ritual = make_category(db_session, "طقس", True, True)
-    path = tmp_path / "اهبد_صح.xlsx"
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "اهبد صح"
-    ws.append(["رقم السؤال", "الفئة", "السؤال", "الإجابة الصحيحة", "الوحدة", "المستوى"])
-    ws.append([1, theology.name, "سؤال عددي أول", 12, "مرة", "صعب"])
-    ws.append([2, ritual.name, "سؤال عددي ثان", 40, "يوماً", "صعب"])
-    wb.save(path)
-    wb.close()
-
-    summary = excel_import.import_estimate_workbook(db_session, path, path.name)
-
-    assert summary["questions_imported"] == 2
-    assert db_session.query(models.Question).filter_by(qtype="estimate").count() == 2
-    assert db_session.query(models.Question).filter_by(category_id=theology.id, qtype="estimate").count() == 1
-    assert db_session.query(models.Question).filter_by(category_id=ritual.id, qtype="estimate").count() == 1

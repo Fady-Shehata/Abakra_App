@@ -33,7 +33,6 @@ def _serialize_state(db: Session, match: models.Match) -> dict:
     session = match.session
     state = ge.load_state(session) if session else ge._default_state()
     remaining = ge.remaining_by_category(db, session) if session else []
-    estimate_remaining = ge.estimate_remaining_by_category(db, session) if session else []
     section_names = scoring.section_names(db)
     section_types = scoring.section_types(db)
     current = state.get("current")
@@ -42,9 +41,7 @@ def _serialize_state(db: Session, match: models.Match) -> dict:
         q = db.get(models.Question, current["question_id"])
         # Only expose text once revealed
         include = current["phase"] in ("revealed", "rebound_open", "done")
-        # Numeric estimates must stay secret until both guesses are submitted.
-        include_answer = include and (not q or q.qtype != "estimate" or current["phase"] == "done")
-        content = qs.render_question(db, q, include_answer=include_answer) if q else {}
+        content = qs.render_question(db, q, include_answer=include) if q else {}
         if not include:
             content.pop("text", None)
             content.pop("choices", None)
@@ -86,7 +83,6 @@ def _serialize_state(db: Session, match: models.Match) -> dict:
         "buzzer": state.get("buzzer"),
         "last_spin": state.get("last_spin"),
         "remaining": remaining,
-        "estimate_remaining": estimate_remaining,
         "section_names": section_names,
         "section_order": scoring.section_order(db),
         "section_types": section_types,
@@ -185,8 +181,6 @@ def mark(mid: int, request: Request, payload: dict = Body(...), db: Session = De
             ge.father_award(db, s, "b", hid)
         elif action == "father_none":
             ge.father_award(db, s, None, hid)
-        elif action == "submit_estimates":
-            ge.submit_estimates(db, s, payload.get("guess_a"), payload.get("guess_b"), hid)
         elif action == "yellow_card":
             ge.apply_yellow_card(db, s, payload.get("team"), hid)
         elif action == "skip":

@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import random
 
-import openpyxl
-
-from app import config, game as ge, models, scoring
+from app import game as ge, models, scoring
 from tests.conftest import make_category, make_match_with_session, make_question, make_source
 
 
@@ -120,55 +118,6 @@ def test_father_asks_awards_10(db_session):
 
     m2 = db_session.get(models.Match, m.id)
     assert m2.score_b == 10
-
-
-def test_ehbed_sah_uses_numeric_bank_and_awards_closest_team(db_session):
-    _clear_categories(db_session)
-    cat = make_category(db_session, "كتاب لاهوت", True, True)
-    src = make_source(db_session, "estimate.xlsx")
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "اهبد صح"
-    ws.append(["رقم السؤال", "الفئة", "السؤال", "الإجابة الصحيحة", "الوحدة", "المستوى"])
-    ws.append([1, cat.name, "كم عدد الاختبار؟", 100, "اختبار", "صعب"])
-    wb.save(config.WORKBOOK_STORE / src.stored_filename)
-    wb.close()
-    q = make_question(db_session, cat.id, src.id, "E1", "estimate-hash")
-    q.qtype = "estimate"
-    q.worksheet = "اهبد صح"
-    db_session.commit()
-    m = make_match_with_session(db_session)
-
-    ge.start_section(db_session, m.session, 6)
-    ge.select_question(db_session, m.session, 6, cat.id, None, None)
-    ge.reveal(db_session, m.session)
-    state = ge.submit_estimates(db_session, m.session, 98, 130, None)
-
-    db_session.refresh(m)
-    assert m.score_a == scoring.ESTIMATE_POINTS
-    assert m.score_b == 0
-    assert state["current"]["phase"] == "done"
-    assert state["current"]["estimate_result"] == {
-        "guess_a": "98", "guess_b": "130", "correct": "100",
-        "distance_a": "2", "distance_b": "30", "winner": "a",
-    }
-
-
-def test_regular_sections_do_not_select_estimate_questions(db_session):
-    _clear_categories(db_session)
-    cat = make_category(db_session, "كتاب لاهوت", True, True)
-    src = make_source(db_session, "separate-banks.xlsx")
-    normal = make_question(db_session, cat.id, src.id, "Q-normal", "normal-hash")
-    estimate = make_question(db_session, cat.id, src.id, "Q-estimate", "estimate-only-hash")
-    estimate.qtype = "estimate"
-    db_session.commit()
-    m = make_match_with_session(db_session)
-
-    ge.start_section(db_session, m.session, 2)
-    state = ge.select_question(db_session, m.session, 2, cat.id, None, None)
-
-    assert state["current"]["question_id"] == normal.id
-    assert ge.available_count(db_session, m.session, cat.id, estimate_only=True) == 1
 
 
 def test_skip_replaces_question_without_revealing_or_advancing(db_session):
