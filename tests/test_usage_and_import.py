@@ -4,7 +4,7 @@ from pathlib import Path
 
 import openpyxl
 
-from app import excel_import, game as ge, models
+from app import config, excel_import, game as ge, models, seed
 from app.database import SessionLocal
 from tests.conftest import make_category, make_match_with_session, make_question, make_source, make_team
 
@@ -135,3 +135,52 @@ def test_import_corrupted_workbook(db_session, tmp_path: Path):
     cat = make_category(db_session, "كتاب لاهوت", True, True)
     summary = excel_import.import_questions_workbook(db_session, bad, bad.name, cat, None)
     assert "corrupted_file" in summary["errors"]
+
+
+def test_theology_workbook_sync_adds_the_48_new_rows(db_session, tmp_path: Path, monkeypatch):
+    category = db_session.query(models.Category).filter_by(name="كتاب لاهوت").one()
+    current_path = config.BASE_DIR / seed.INITIAL_WORKBOOKS["كتاب لاهوت"]
+    current = openpyxl.load_workbook(current_path, read_only=True, data_only=True)
+    old_path = tmp_path / current_path.name
+    old = openpyxl.Workbook()
+    old.remove(old.active)
+    old_row_counts = {"صح أم خطأ": 20, "اختر الإجابة الصحيحة": 6, "اكمل": 7}
+    for current_sheet in current.worksheets:
+        target = old.create_sheet(current_sheet.title)
+        rows = current_sheet.iter_rows(values_only=True)
+        target.append(list(next(rows)))
+        for row in list(rows)[:old_row_counts[current_sheet.title]]:
+            target.append(list(row))
+    current.close()
+    old.save(old_path)
+    old.close()
+    initial = excel_import.import_questions_workbook(
+        db_session, old_path, current_path.name, category, user_id=None
+    )
+    assert initial["questions_imported"] == 33
+
+    monkeypatch.delenv("ABAKRA_SKIP_AUTOIMPORT")
+    synced = seed._sync_updated_theology_workbook(db_session)
+
+    assert synced is not None
+    assert synced["questions_imported"] == 48
+    assert db_session.query(models.Question).filter_by(category_id=category.id).count() == 81
+    assert seed._sync_updated_theology_workbook(db_session) is None
+
+
+def test_retired_ehbed_questions_are_removed_once(db_session, monkeypatch):
+    category = db_session.query(models.Category).filter_by(name="كتاب لاهوت").one()
+    source = make_source(db_session, "اهبد_صح.xlsx")
+    question = make_question(db_session, category.id, source.id, "E-1", "ehbed-hash")
+    question.qtype = "estimate"
+    db_session.commit()
+    question_id, source_id = question.id, source.id
+
+    monkeypatch.delenv("ABAKRA_SKIP_AUTOIMPORT")
+    removed = seed._remove_ehbed_questions(db_session)
+
+    assert removed == 1
+    assert db_session.query(models.Question).filter_by(id=question_id).count() == 0
+    assert db_session.query(models.QuestionSource).filter_by(id=source_id).count() == 0
+    assert db_session.get(models.ApplicationSetting, seed.EHED_CLEANUP_KEY).value == "1"
+    assert seed._remove_ehbed_questions(db_session) == 0
