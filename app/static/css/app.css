@@ -871,6 +871,18 @@ input[type="file"]::file-selector-button:hover {
   justify-content: center;
 }
 
+.estimate-form { width: min(920px, 100%); display: grid; gap: 16px; justify-items: center; }
+.estimate-fields { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.estimate-field { display: grid; gap: 8px; padding: 16px; border-radius: 14px; font-weight: 800; }
+.estimate-field.team-a { background: rgba(43,159,214,.16); }
+.estimate-field.team-b { background: rgba(232,130,30,.16); }
+.estimate-field input { font-size: 1.6rem; text-align: center; }
+.estimate-result { width: min(920px, 94%); display: grid; gap: 10px; padding: 20px; border: 1px solid rgba(244,214,122,.5); border-radius: 14px; text-align: center; font-size: 1.25rem; }
+.estimate-result strong { color: var(--accent-light); font-size: 1.6rem; }
+.answer-reveal-value small { font-size: .38em; }
+
+@media (max-width: 680px) { .estimate-fields { grid-template-columns: 1fr; } }
+
 .score-breakdown {
   overflow-x: auto;
   overflow-y: hidden;

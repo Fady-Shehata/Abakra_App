@@ -14,8 +14,10 @@ import json
 NORMAL_POINTS = 5
 REBOUND_POINTS = 10
 FATHER_POINTS = 10
+ESTIMATE_POINTS = 5
 
 MENTAL_CATEGORY = "قدرات ذهنية"
+ESTIMATE_CATEGORIES = {"كتاب لاهوت", "رسالة العبرانيين", "طقس", "كتاب المجامع"}
 
 SECTION_NAMES = {
     1: "الجماعي بوقت",
@@ -23,17 +25,18 @@ SECTION_NAMES = {
     3: "فردي",
     4: "عجلة الحظ",
     5: "أبونا بيسأل",
+    6: "اهبد صح",
 }
 
 # section -> whether a rebound is permitted after a wrong original answer
 # Section 3 (individual) also supports rebound now: the host picks which team
 # is awarded the rebound points from the frontend.
-SECTION_REBOUND = {1: True, 2: True, 3: True, 4: True, 5: False}
-SECTION_TIMED = {1: True, 2: False, 3: False, 4: False, 5: False}
-SECTION_BUZZER = {1: False, 2: True, 3: True, 4: False, 5: False}
+SECTION_REBOUND = {1: True, 2: True, 3: True, 4: True, 5: False, 6: False}
+SECTION_TIMED = {1: True, 2: False, 3: False, 4: False, 5: False, 6: False}
+SECTION_BUZZER = {1: False, 2: True, 3: True, 4: False, 5: False, 6: False}
 
 SECTION_CONFIG_KEY = "section_config_v1"
-DEFAULT_SECTION_ORDER = [1, 2, 5, 3, 4]
+DEFAULT_SECTION_ORDER = [1, 2, 5, 3, 4, 6]
 
 SECTION_TEMPLATES = {
     1: {"id": 1, "name": SECTION_NAMES[1], "label": "Timed team"},
@@ -41,6 +44,7 @@ SECTION_TEMPLATES = {
     3: {"id": 3, "name": SECTION_NAMES[3], "label": "Individual"},
     4: {"id": 4, "name": SECTION_NAMES[4], "label": "Wheel"},
     5: {"id": 5, "name": SECTION_NAMES[5], "label": "Father asks"},
+    6: {"id": 6, "name": SECTION_NAMES[6], "label": "Closest estimate"},
 }
 
 

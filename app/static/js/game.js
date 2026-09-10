@@ -34,7 +34,7 @@
 
   const $ = (id) => document.getElementById(id);
 
-  const DEFAULT_SECTION_ORDER = [1, 2, 5, 3, 4];
+  const DEFAULT_SECTION_ORDER = [1, 2, 5, 3, 4, 6];
 
   async function call(path, body) {
     const r = await apiPost(base + path, body);
@@ -46,6 +46,7 @@
   function flash(key, ctx) {
     let msg = key || 'error';
     if (key === 'not_enough_questions' && ctx) msg = `${L['available']}: ${ctx.cat} (${ctx.n})`;
+    if (key === 'invalid_number') msg = L['invalid_number'];
     (window.SmartAlert || alert)(msg);
   }
 
@@ -228,7 +229,8 @@
   function buildSharedCategoryControls(sec, secType, busy) {
     const wrap = document.createElement('div');
     wrap.className = secType === 3 ? 'section-duel-grid' : 'section-category-grid';
-    state.remaining.forEach((c) => {
+    const categories = secType === 6 ? (state.estimate_remaining || []) : state.remaining;
+    categories.forEach((c) => {
       wrap.appendChild(mkChip(c.name, c.remaining, c.remaining <= 0 || busy,
         () => call('/select', { section: sec, category_id: c.id, team: null }), secType === 3 ? 'duel' : 'shared'));
     });
@@ -289,7 +291,7 @@
     } else {
       stopTimer();
     }
-    qc.innerHTML = renderQuestionPanel(cur, c, answerUnlocked);
+    qc.innerHTML = renderQuestionPanel(cur, c, answerUnlocked || (c.qtype === 'estimate' && cur.phase === 'done'));
     if (autoStartTimerAfterReveal && cur.phase === 'revealed') {
       autoStartTimerAfterReveal = false;
       startTimer();
@@ -351,6 +353,11 @@
   function buildAnswerActionsBar(cur, secType) {
     const bar = document.createElement('div');
     bar.className = `answer-actions section-type-${secType}`;
+
+    if (secType === 6) {
+      bar.appendChild(buildEstimateForm());
+      return bar;
+    }
 
     if (!showAnswer) {
       const primary = document.createElement('div');
@@ -427,6 +434,38 @@
     return bar;
   }
 
+  function buildEstimateForm() {
+    const form = document.createElement('div');
+    form.className = 'estimate-form';
+    const fields = document.createElement('div');
+    fields.className = 'estimate-fields';
+    const inputs = {};
+    [['a', state.team_a], ['b', state.team_b]].forEach(([key, team]) => {
+      const label = document.createElement('label');
+      label.className = `estimate-field team-${key}`;
+      const title = document.createElement('span');
+      title.textContent = `${L['estimate_for']} ${team.name}`;
+      const input = document.createElement('input');
+      input.type = 'number'; input.step = 'any'; input.required = true;
+      input.inputMode = 'decimal'; input.autocomplete = 'off';
+      label.append(title, input); fields.appendChild(label); inputs[key] = input;
+    });
+    const submit = btn(L['submit_estimates'], 'primary', () => {
+      if (inputs.a.value === '' || inputs.b.value === '') { flash('invalid_number'); return; }
+      call('/mark', { action: 'submit_estimates', guess_a: inputs.a.value, guess_b: inputs.b.value });
+    });
+    const misc = document.createElement('div');
+    misc.className = 'answer-actions-row aa-row-misc';
+    misc.appendChild(actionSecondaryButton(L['skip'], 'aa-skip',
+      () => call('/mark', { action: 'skip' })));
+    misc.appendChild(actionSecondaryButton(L['invalidate'], 'aa-invalidate', async () => {
+      const reason = (await window.SmartPrompt(L['invalidate_reason'])) || '';
+      call('/mark', { action: 'invalidate', reason });
+    }));
+    form.append(fields, submit, misc);
+    return form;
+  }
+
   function buildReboundActionsBar(cur, secType) {
     const bar = document.createElement('div');
     bar.className = `answer-actions is-rebound section-type-${secType}`;
@@ -496,9 +535,16 @@
       if (answerUnlocked) {
         html += '<div class="answer-panel answer-reveal-panel">';
         html += `<div class="answer-reveal-label">${escapeHtml(L['correct_answer'])}</div>`;
-        html += `<div class="answer-reveal-value">${escapeHtml(c.answer || '')}</div>`;
+        html += `<div class="answer-reveal-value">${escapeHtml(c.answer || '')}${c.unit ? ` <small>${escapeHtml(c.unit)}</small>` : ''}</div>`;
         if (c.explanation) html += `<div class="answer-reveal-explanation">${escapeHtml(c.explanation)}</div>`;
         html += '</div>';
+      }
+      if (cur.estimate_result) {
+        const r = cur.estimate_result;
+        const winner = r.winner === 'tie' ? L['estimate_tie'] : `${L['closest_answer']}: ${escapeHtml(r.winner === 'a' ? state.team_a.name : state.team_b.name)}`;
+        html += `<div class="estimate-result"><strong>${winner}</strong>` +
+          `<div>${escapeHtml(state.team_a.name)}: ${escapeHtml(r.guess_a)} (${escapeHtml(L['distance'])}: ${escapeHtml(r.distance_a)})</div>` +
+          `<div>${escapeHtml(state.team_b.name)}: ${escapeHtml(r.guess_b)} (${escapeHtml(L['distance'])}: ${escapeHtml(r.distance_b)})</div></div>`;
       }
     }
     html += '</div>';
@@ -506,6 +552,7 @@
   }
 
   function questionKind(c) {
+    if (c.qtype === 'estimate') return 'estimate';
     if (c.qtype === 'mc') return 'mc';
     if (c.qtype === 'tf') return 'tf';
     return 'open';

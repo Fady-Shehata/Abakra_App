@@ -25,6 +25,7 @@ INITIAL_WORKBOOKS = {
     "قدرات ذهنية": "output/final/قدرات_ذهنية.xlsx",
     "معلومات عامة": "output/final/معلومات_عامة.xlsx",
 }
+ESTIMATE_WORKBOOK = "output/final/اهبد_صح.xlsx"
 
 
 def seed_initial_data() -> None:
@@ -69,6 +70,7 @@ def seed_initial_data() -> None:
         db.commit()
 
         _auto_import_initial_workbooks(db)
+        _auto_import_estimate_workbook(db)
     finally:
         db.close()
 
@@ -93,3 +95,19 @@ def _auto_import_initial_workbooks(db) -> None:
         except Exception:
             # never break startup on import issues
             db.rollback()
+
+
+def _auto_import_estimate_workbook(db) -> None:
+    """Import the dedicated multi-category numeric bank once."""
+    if os.environ.get("ABAKRA_SKIP_AUTOIMPORT"):
+        return
+    if db.query(models.Question).filter_by(qtype="estimate").first():
+        return
+    path = config.BASE_DIR / ESTIMATE_WORKBOOK
+    if not path.exists():
+        return
+    from . import excel_import
+    try:
+        excel_import.import_estimate_workbook(db, path, path.name)
+    except Exception:
+        db.rollback()

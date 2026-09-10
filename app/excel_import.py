@@ -17,7 +17,7 @@ from typing import Optional
 import openpyxl
 from sqlalchemy.orm import Session
 
-from . import config, models, question_store as qs
+from . import config, models, question_store as qs, scoring
 
 
 # --------------------------------------------------------------------------- #
@@ -177,6 +177,62 @@ def import_questions_workbook(
         source_id=source.id, category_id=category.id, user_id=user_id,
         summary_json=json.dumps(summary, ensure_ascii=False),
     ))
+    db.commit()
+    qs.invalidate_cache()
+    return summary
+
+
+def import_estimate_workbook(db: Session, path: Path, original_name: str) -> dict:
+    """Import the multi-category اهبد صح bank as numeric estimate questions."""
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    dest, stored, fhash = store_workbook(path, original_name)
+    source = models.QuestionSource(
+        original_name=original_name, stored_filename=stored, file_hash=fhash, kind="import"
+    )
+    db.add(source)
+    db.flush()
+    existing_hashes = {h for (h,) in db.query(models.Question.content_hash).all()}
+    category_map = {qs.normalize(c.name): c for c in db.query(models.Category).all()}
+    imported = skipped = invalid = 0
+    seq = db.query(models.Question).count()
+
+    for ws in wb.worksheets:
+        rows = list(ws.iter_rows(values_only=True))
+        if len(rows) < 2:
+            continue
+        mapping = qs.map_headers(list(rows[0]))
+        category_idx = next((i for i, value in enumerate(rows[0])
+                             if qs.normalize(value).lower() in {"الفئة", "الفئه", "category"}), None)
+        if "question" not in mapping.values() or "answer" not in mapping.values() or category_idx is None:
+            continue
+        for row_number, raw in enumerate(rows[1:], start=2):
+            fields = {"question": "", "answer": "", "difficulty": ""}
+            for idx, field in mapping.items():
+                if field in fields and idx < len(raw) and raw[idx] is not None:
+                    fields[field] = str(raw[idx]).strip()
+            category_name = qs.normalize(raw[category_idx] if category_idx < len(raw) else "")
+            category = category_map.get(category_name)
+            if not category or category.name not in scoring.ESTIMATE_CATEGORIES or not fields["question"] or not fields["answer"]:
+                invalid += 1
+                continue
+            chash = qs.content_hash(fields["question"], fields["answer"], [])
+            if chash in existing_hashes:
+                skipped += 1
+                continue
+            seq += 1
+            db.add(models.Question(
+                category_id=category.id, source_id=source.id, worksheet=ws.title,
+                row_number=row_number, question_code=f"E-{category.id:02d}-{source.id:04d}-{seq:05d}",
+                content_hash=chash, qtype="estimate", difficulty=fields["difficulty"] or None,
+                is_active=True,
+            ))
+            existing_hashes.add(chash)
+            imported += 1
+    wb.close()
+    summary = {"workbook_name": original_name, "questions_imported": imported,
+               "duplicates_skipped": skipped, "invalid_rows": invalid}
+    db.add(models.QuestionImport(source_id=source.id, category_id=None, user_id=None,
+                                 summary_json=json.dumps(summary, ensure_ascii=False)))
     db.commit()
     qs.invalidate_cache()
     return summary
